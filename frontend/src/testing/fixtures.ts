@@ -1,0 +1,81 @@
+import { EventType, ExperimentConfiguration, ExperimentDetails, ExperimentEvent } from '../app/core/models/api.models';
+
+export const CONFIG: ExperimentConfiguration = {
+  threads: 2,
+  transactions: 2,
+  initialValue: 1000,
+  operationValue: 800,
+  resourceCount: 1,
+  resourceCode: 'ACC-A',
+  delayBeforeReadMs: 0,
+  delayAfterReadMs: 0,
+  delayBeforeWriteMs: 0,
+  delayBeforeCommitMs: 0,
+  isolationLevel: 'READ_COMMITTED',
+  transactionTimeoutMs: 10000,
+  lockTimeoutMs: 5000,
+  retries: 0,
+  backoffMs: 100,
+  seed: 42,
+  executionMode: 'CONCURRENT',
+  topology: 'SINGLE_JVM',
+  coordinated: true,
+  lockTtlMs: 1500,
+  failureMode: 'NONE',
+  stepTimeoutSeconds: 120,
+};
+
+export function details(over: Partial<ExperimentDetails> = {}): ExperimentDetails {
+  return {
+    id: 'EXP-1',
+    name: 'Lost Update',
+    presetId: 'lost-update',
+    scenarioId: 'bank-withdrawal',
+    category: 'CONCURRENCY',
+    strategy: 'NONE',
+    status: 'CREATED',
+    executionMode: 'CONCURRENT',
+    instanceId: 'primary',
+    comparisonId: null,
+    warmup: false,
+    rerunOf: null,
+    createdAt: '2026-01-01T00:00:00Z',
+    startedAt: null,
+    finishedAt: null,
+    durationMs: null,
+    consistent: null,
+    violationCount: null,
+    eventCount: null,
+    configuration: CONFIG,
+    errorMessage: null,
+    stepState: null,
+    ...over,
+  };
+}
+
+export function ev(
+  sequence: number,
+  eventType: EventType,
+  workerId: string | null,
+  elapsedTimeMs: number,
+  over: Partial<ExperimentEvent> = {},
+): ExperimentEvent {
+  return {
+    experimentId: 'EXP-1',
+    sequence,
+    transactionId: workerId ? `tx-${workerId}` : null,
+    workerId,
+    threadName: null,
+    instanceId: 'primary',
+    correlationId: null,
+    connectionPid: null,
+    eventType,
+    resource: 'account:ACC-A',
+    timestamp: '2026-01-01T00:00:00Z',
+    elapsedTimeMs,
+    source: 'INSTRUMENTED',
+    message: null,
+    details: null,
+    ...over,
+  };
+}

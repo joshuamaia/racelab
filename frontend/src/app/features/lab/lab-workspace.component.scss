@@ -1,0 +1,63 @@
+:host {
+  display: block;
+}
+.lab-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: center;
+  padding: 0.6rem 0.75rem;
+}
+:host ::ng-deep .strategy-select {
+  min-width: 14rem;
+}
+.strategy-hint {
+  padding: 0 0.85rem 0.6rem;
+}
+.toolbar-panel .callout {
+  margin: 0 0.75rem 0.6rem;
+}
+:host ::ng-deep .lab-splitter {
+  height: calc(100vh - 230px);
+  min-height: 640px;
+}
+.split-col {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0 0.3rem;
+  min-width: 0;
+  overflow: auto;
+}
+.fill {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.scroll {
+  overflow: auto;
+}
+.catalog-panel {
+  flex: 0 1 42%;
+}
+.stack-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  .rl-panel-body.scroll {
+    max-height: 520px;
+  }
+}
+.invariant {
+  margin-bottom: 0.6rem;
+  color: var(--rl-muted);
+  code {
+    color: var(--rl-text);
+  }
+}
+.timeline-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  min-height: 0;
+}

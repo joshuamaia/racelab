@@ -1,0 +1,19 @@
+.demo-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.85rem;
+  border: 1px solid var(--rl-border);
+  border-radius: var(--rl-radius);
+  background: var(--rl-panel-2);
+  min-height: 11rem;
+  h3 {
+    font-size: 0.95rem;
+  }
+  p {
+    margin: 0;
+  }
+  p-button {
+    align-self: flex-start;
+  }
+}

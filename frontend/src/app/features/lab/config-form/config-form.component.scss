@@ -1,0 +1,46 @@
+:host {
+  display: block;
+}
+.cfg-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 0.6rem 0.7rem;
+}
+.cfg-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+  label {
+    font-size: 0.74rem;
+    color: var(--rl-muted);
+    display: flex;
+    justify-content: space-between;
+    gap: 0.3rem;
+    cursor: help;
+  }
+  .range {
+    color: var(--rl-subtle);
+    font-size: 0.66rem;
+  }
+  .err {
+    color: var(--rl-red);
+    font-size: 0.72rem;
+  }
+  &.invalid label {
+    color: var(--rl-red);
+  }
+}
+:host ::ng-deep .cfg-advanced {
+  margin-top: 0.6rem;
+}
+:host ::ng-deep .p-inputnumber-input {
+  font-family: var(--rl-font-mono);
+  font-size: 0.8rem;
+  min-width: 0;
+  width: 100%;
+}
+.cfg-actions {
+  margin-top: 0.4rem;
+  justify-content: flex-end;
+}

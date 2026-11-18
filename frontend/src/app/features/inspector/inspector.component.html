@@ -1,0 +1,208 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <h1><i class="pi pi-search" aria-hidden="true"></i> Transaction Inspector</h1>
+      <p class="subtitle">
+        Live view of PostgreSQL sessions (<code>pg_stat_activity</code>), locks (<code>pg_locks</code>) and blocking
+        (<code>pg_blocking_pids</code>).
+      </p>
+    </div>
+    <div class="actions">
+      <p-selectbutton
+        [options]="scopeOptions"
+        optionLabel="label"
+        optionValue="value"
+        [ngModel]="scope()"
+        (ngModelChange)="scope.set($event)"
+        [allowEmpty]="false"
+        ariaLabelledBy="scope-label"
+      />
+      <span id="scope-label" class="sr-only">Scope</span>
+      <p-selectbutton
+        [options]="refreshOptions"
+        optionLabel="label"
+        optionValue="value"
+        [ngModel]="refreshMs()"
+        (ngModelChange)="refreshMs.set($event)"
+        [allowEmpty]="false"
+        ariaLabelledBy="refresh-label"
+        pTooltip="Auto-refresh interval"
+      />
+      <span id="refresh-label" class="sr-only">Auto refresh</span>
+      <p-button icon="pi pi-refresh" [outlined]="true" (onClick)="refreshNow()" [loading]="loading()" ariaLabel="Refresh now" pTooltip="Atualizar agora" />
+    </div>
+  </header>
+
+  <section class="rl-panel">
+    <div class="rl-panel-header">
+      <h2><i class="pi pi-play-circle" aria-hidden="true"></i> Watch live blocking</h2>
+    </div>
+    <div class="rl-panel-body row">
+      <p-button
+        label="Launch deadlock demo"
+        icon="pi pi-sync"
+        severity="warn"
+        [outlined]="true"
+        [disabled]="!deadlockPreset() || !!launching()"
+        [loading]="launching() === 'deadlock'"
+        (onClick)="launch('deadlock')"
+        pTooltip="Starts the deadlock demo with longer delays (3s before commit) so blocking stays visible"
+      />
+      <p-button
+        label="Launch pessimistic demo"
+        icon="pi pi-lock"
+        [outlined]="true"
+        [disabled]="!pessimisticPreset() || !!launching()"
+        [loading]="launching() === 'pessimistic'"
+        (onClick)="launch('pessimistic')"
+        pTooltip="Starts a SELECT … FOR UPDATE experiment with longer delays"
+      />
+      @if (launched(); as d) {
+        <span class="small">
+          Started <a class="num" [routerLink]="['/experiments', d.id]">{{ d.id }}</a> — auto-refresh set to 1s.
+        </span>
+      } @else {
+        <span class="muted small">Delays: 1.5s after read, 3s before commit; lock timeout 15s.</span>
+      }
+    </div>
+  </section>
+
+  @if (error()) {
+    <div class="callout tone-rollback" role="alert">
+      <i class="pi pi-exclamation-circle" aria-hidden="true"></i>
+      <span>Snapshot unavailable: {{ error() }}</span>
+    </div>
+  }
+
+  @if (snapshot(); as snap) {
+    <div class="callout tone-info" role="note">
+      <i class="pi pi-camera" aria-hidden="true"></i>
+      <span>
+        {{ snap.note }}
+        <span class="muted small num"> Captured {{ formatDateTime(snap.capturedAt) }}{{ snap.postgresVersion ? ' · ' + snap.postgresVersion : '' }}</span>
+      </span>
+    </div>
+
+    <div class="row">
+      <span class="pill tone-read num"><i class="pi pi-users" aria-hidden="true"></i>{{ snap.sessions.length }} sessions</span>
+      <span class="pill tone-wait num"><i class="pi pi-hourglass" aria-hidden="true"></i>{{ waitingCount() }} blocked</span>
+      <span class="pill tone-neutral num"><i class="pi pi-lock" aria-hidden="true"></i>{{ snap.locks.length }} locks</span>
+      <span class="pill tone-conflict num"><i class="pi pi-clock" aria-hidden="true"></i>{{ notGranted() }} not granted</span>
+    </div>
+
+    <div class="grid grid-2">
+      <section class="rl-panel">
+        <div class="rl-panel-header"><h2><i class="pi pi-share-alt" aria-hidden="true"></i> Dependency graph</h2></div>
+        <div class="rl-panel-body">
+          <rl-lock-graph [graph]="snap.graph" emptyMessage="No session is waiting for another one right now." />
+        </div>
+      </section>
+      <section class="rl-panel">
+        <div class="rl-panel-header"><h2><i class="pi pi-arrow-right-arrow-left" aria-hidden="true"></i> Who blocks whom</h2></div>
+        <div class="rl-panel-body">
+          @if (edges().length) {
+            <ul class="blocks" aria-label="Blocking relationships">
+              @for (e of edges(); track e.blockerPid + '-' + e.blockedPid) {
+                <li>
+                  <span class="pill tone-write num">{{ e.blockerLabel }}</span>
+                  <span class="arrow">—blocks→</span>
+                  <span class="pill tone-wait num">{{ e.blockedLabel }}</span>
+                </li>
+              }
+            </ul>
+          } @else {
+            <rl-empty-state icon="pi pi-check-circle" title="No blocking" message="No session is currently waiting on a lock held by another session." />
+          }
+        </div>
+      </section>
+    </div>
+
+    <section class="rl-panel">
+      <div class="rl-panel-header"><h2><i class="pi pi-users" aria-hidden="true"></i> Sessions</h2></div>
+      <div class="rl-panel-body flush">
+        <p-table [value]="snap.sessions" dataKey="pid" size="small" styleClass="table-mono" [scrollable]="true" scrollHeight="420px" [tableStyle]="{ 'min-width': '70rem' }">
+          <ng-template #header>
+            <tr>
+              <th scope="col">PID</th>
+              <th scope="col">Application / experiment / worker</th>
+              <th scope="col">State</th>
+              <th scope="col">Tx age</th>
+              <th scope="col">Wait event</th>
+              <th scope="col">Blocked by</th>
+              <th scope="col">Query</th>
+            </tr>
+          </ng-template>
+          <ng-template #body let-s>
+            <tr [class.blocked]="s.blockedBy?.length">
+              <td class="mono">{{ s.pid }}</td>
+              <td>
+                <div class="mono small">{{ s.applicationName ?? '—' }}</div>
+                @if (s.experimentId) {
+                  <a class="small num" [routerLink]="['/experiments', s.experimentId]">{{ s.experimentId }}</a>
+                }
+                @if (s.workerId) {
+                  <span class="subtle small num"> · {{ s.workerId }}</span>
+                }
+              </td>
+              <td><span class="pill" [class]="'pill ' + (s.state === 'active' ? 'tone-read' : s.state?.startsWith('idle in') ? 'tone-wait' : 'tone-neutral')">{{ s.state ?? '—' }}</span></td>
+              <td class="mono">{{ formatMs(s.transactionAgeMs) }}</td>
+              <td class="mono small">{{ s.waitEventType ? s.waitEventType + ': ' + (s.waitEvent ?? '') : '—' }}</td>
+              <td class="mono">
+                @if (s.blockedBy?.length) {
+                  <span class="pill tone-conflict"><i class="pi pi-hourglass" aria-hidden="true"></i>{{ s.blockedBy.join(', ') }}</span>
+                } @else {
+                  —
+                }
+              </td>
+              <td class="mono small query" [pTooltip]="s.query ?? ''">{{ s.query ?? '—' }}</td>
+            </tr>
+          </ng-template>
+          <ng-template #emptymessage>
+            <tr><td colspan="7"><rl-empty-state icon="pi pi-users" title="No sessions" message="No matching sessions at the moment of the snapshot." /></td></tr>
+          </ng-template>
+        </p-table>
+      </div>
+    </section>
+
+    <section class="rl-panel">
+      <div class="rl-panel-header"><h2><i class="pi pi-lock" aria-hidden="true"></i> Locks</h2></div>
+      <div class="rl-panel-body flush">
+        <p-table [value]="snap.locks" size="small" styleClass="table-mono" [scrollable]="true" scrollHeight="380px" [tableStyle]="{ 'min-width': '56rem' }">
+          <ng-template #header>
+            <tr>
+              <th scope="col">PID</th>
+              <th scope="col">Lock type</th>
+              <th scope="col">Mode</th>
+              <th scope="col">Granted</th>
+              <th scope="col">Relation</th>
+              <th scope="col">Transaction id</th>
+              <th scope="col">Page / tuple</th>
+            </tr>
+          </ng-template>
+          <ng-template #body let-l>
+            <tr>
+              <td class="mono">{{ l.pid }}</td>
+              <td class="mono">{{ l.lockType }}</td>
+              <td class="mono">{{ l.mode }}</td>
+              <td>
+                @if (l.granted) {
+                  <span class="pill tone-commit"><i class="pi pi-check" aria-hidden="true"></i>granted</span>
+                } @else {
+                  <span class="pill tone-wait"><i class="pi pi-hourglass" aria-hidden="true"></i>waiting</span>
+                }
+              </td>
+              <td class="mono">{{ l.relation ?? '—' }}</td>
+              <td class="mono">{{ l.transactionId ?? '—' }}</td>
+              <td class="mono">{{ l.page ?? '—' }} / {{ l.tuple ?? '—' }}</td>
+            </tr>
+          </ng-template>
+          <ng-template #emptymessage>
+            <tr><td colspan="7" class="muted">No locks held at the moment of the snapshot.</td></tr>
+          </ng-template>
+        </p-table>
+      </div>
+    </section>
+  } @else if (!error()) {
+    <rl-empty-state icon="pi pi-spin pi-spinner" title="Loading snapshot…" />
+  }
+</div>

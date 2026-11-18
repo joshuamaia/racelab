@@ -1,0 +1,28 @@
+.filters {
+  gap: 0.5rem;
+}
+.compare-scroll {
+  overflow: auto;
+  max-height: 65vh;
+}
+.compare-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.84rem;
+  th,
+  td {
+    padding: 0.35rem 0.6rem;
+    border-bottom: 1px solid var(--rl-border);
+    text-align: left;
+    white-space: nowrap;
+  }
+  thead th {
+    position: sticky;
+    top: 0;
+    background: var(--rl-panel);
+  }
+  tbody th {
+    color: var(--rl-muted);
+    font-weight: 500;
+  }
+}

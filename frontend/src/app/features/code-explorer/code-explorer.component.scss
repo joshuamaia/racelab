@@ -1,0 +1,36 @@
+.toolbar {
+  margin-bottom: 0.6rem;
+}
+.side-by-side {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.8rem;
+  @media (max-width: 1100px) {
+    grid-template-columns: 1fr;
+  }
+}
+.diff-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.4rem;
+}
+.cnt {
+  font-size: 0.68rem;
+  background: var(--rl-grey-bg);
+  border-radius: 999px;
+  padding: 0 0.4rem;
+  margin-left: 0.25rem;
+}
+.explanation {
+  max-width: 90ch;
+  line-height: 1.6;
+}
+.good {
+  color: var(--rl-green);
+}
+.warn {
+  color: var(--rl-orange);
+}
+:host ::ng-deep .sel {
+  min-width: 15rem;
+}

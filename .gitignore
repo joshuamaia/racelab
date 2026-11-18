@@ -1,0 +1,23 @@
+# build output
+backend/target/
+bff/dist/
+frontend/dist/
+frontend/.angular/
+**/node_modules/
+**/coverage/
+frontend/test-results/
+frontend/playwright-report/
+
+# env / local
+.env
+*.log
+*.local
+
+# IDE
+.idea/
+.vscode/
+*.iml
+.DS_Store
+
+# machine-specific CA certificates (TLS interception)
+infrastructure/certs/*.crt

@@ -1,0 +1,69 @@
+// RaceLab design tokens. Dark is the default theme (html.app-dark).
+:root {
+  --rl-font-ui: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --rl-font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, 'Cascadia Mono', Consolas, 'Liberation Mono', monospace;
+
+  --rl-bg: #f4f6fb;
+  --rl-panel: #ffffff;
+  --rl-panel-2: #f8fafd;
+  --rl-border: #dfe5ef;
+  --rl-text: #0f172a;
+  --rl-muted: #5b6780;
+  --rl-subtle: #8a94a8;
+
+  --rl-blue: #2563eb;
+  --rl-cyan: #0891b2;
+  --rl-green: #15803d;
+  --rl-red: #dc2626;
+  --rl-yellow: #a16207;
+  --rl-orange: #c2410c;
+  --rl-purple: #7c3aed;
+  --rl-grey: #64748b;
+
+  --rl-blue-bg: #dbeafe;
+  --rl-cyan-bg: #cffafe;
+  --rl-green-bg: #dcfce7;
+  --rl-red-bg: #fee2e2;
+  --rl-yellow-bg: #fef9c3;
+  --rl-orange-bg: #ffedd5;
+  --rl-purple-bg: #ede9fe;
+  --rl-grey-bg: #eef2f7;
+
+  --rl-radius: 8px;
+  --rl-radius-sm: 5px;
+  --rl-shadow: 0 1px 2px rgb(15 23 42 / 6%), 0 4px 16px rgb(15 23 42 / 5%);
+  --rl-topbar-h: 56px;
+  --rl-sidebar-w: 236px;
+  --rl-sidebar-w-collapsed: 60px;
+  --rl-focus: 0 0 0 2px var(--rl-panel), 0 0 0 4px var(--rl-blue);
+}
+
+html.app-dark {
+  --rl-bg: #0b1220;
+  --rl-panel: #111a2e;
+  --rl-panel-2: #0e1628;
+  --rl-border: #1b2740;
+  --rl-text: #e6ebf5;
+  --rl-muted: #9aa8c4;
+  --rl-subtle: #6b7a99;
+
+  --rl-blue: #60a5fa;
+  --rl-cyan: #22d3ee;
+  --rl-green: #4ade80;
+  --rl-red: #f87171;
+  --rl-yellow: #facc15;
+  --rl-orange: #fb923c;
+  --rl-purple: #c084fc;
+  --rl-grey: #94a3b8;
+
+  --rl-blue-bg: rgb(59 130 246 / 16%);
+  --rl-cyan-bg: rgb(34 211 238 / 14%);
+  --rl-green-bg: rgb(34 197 94 / 15%);
+  --rl-red-bg: rgb(239 68 68 / 16%);
+  --rl-yellow-bg: rgb(234 179 8 / 15%);
+  --rl-orange-bg: rgb(249 115 22 / 16%);
+  --rl-purple-bg: rgb(168 85 247 / 16%);
+  --rl-grey-bg: rgb(148 163 184 / 12%);
+
+  --rl-shadow: 0 1px 2px rgb(0 0 0 / 30%), 0 6px 24px rgb(0 0 0 / 25%);
+}

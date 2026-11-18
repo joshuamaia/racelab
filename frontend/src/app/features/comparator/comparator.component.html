@@ -1,0 +1,274 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <h1><i class="pi pi-sliders-h" aria-hidden="true"></i> Strategy Comparator</h1>
+      <p class="subtitle">
+        Run the same scenario with 2–8 strategies under a shared configuration, with repetitions and warm-up runs.
+        Compare measured trade-offs — there is no universal winner.
+      </p>
+    </div>
+  </header>
+
+  <div class="cmp-layout">
+    <section class="rl-panel" aria-labelledby="cmp-setup-title">
+      <div class="rl-panel-header">
+        <h2 id="cmp-setup-title"><i class="pi pi-cog" aria-hidden="true"></i> Setup</h2>
+      </div>
+      <div class="rl-panel-body stack">
+        <label class="field">
+          <span>Scenario</span>
+          <p-select
+            [options]="scenarioOptions()"
+            optionLabel="label"
+            optionValue="value"
+            [ngModel]="scenarioId()"
+            (ngModelChange)="selectScenario($event)"
+            [filter]="true"
+            placeholder="Select a scenario"
+            ariaLabel="Scenario"
+            styleClass="w-full"
+            appendTo="body"
+          />
+        </label>
+        @if (scenario(); as s) {
+          <p class="muted small">{{ s.description }}</p>
+        }
+
+        <label class="field">
+          <span>Strategies ({{ strategies().length }}/8)</span>
+          <p-multiselect
+            [options]="strategyOptions()"
+            optionLabel="label"
+            optionValue="value"
+            [ngModel]="strategies()"
+            (ngModelChange)="strategies.set($event)"
+            [selectionLimit]="8"
+            display="chip"
+            placeholder="Pick 2 to 8 strategies"
+            ariaLabel="Strategies"
+            styleClass="w-full"
+            appendTo="body"
+          />
+          @if (strategyCountError(); as err) {
+            <small class="err" role="alert">{{ err }}</small>
+          }
+        </label>
+
+        <div class="cmp-two">
+          <label class="field">
+            <span>Repetitions</span>
+            <p-inputnumber [ngModel]="repetitions()" (ngModelChange)="repetitions.set($event ?? 1)" [min]="1" [max]="10" [showButtons]="true" inputId="cmp-reps" ariaLabel="Repetitions (1 to 10)" />
+          </label>
+          <label class="field">
+            <span>Warm-up runs</span>
+            <p-inputnumber [ngModel]="warmupRuns()" (ngModelChange)="warmupRuns.set($event ?? 0)" [min]="0" [max]="3" [showButtons]="true" inputId="cmp-warm" ariaLabel="Warm-up runs (0 to 3)" />
+          </label>
+        </div>
+
+        <label class="field">
+          <span>Name (optional)</span>
+          <input pInputText [ngModel]="name()" (ngModelChange)="name.set($event)" maxlength="120" aria-label="Comparison name" />
+        </label>
+
+        @if (config()) {
+          <div class="row">
+            <h3 class="sub">Shared configuration</h3>
+            <span class="grow"></span>
+            <p-button label="Reset" icon="pi pi-refresh" size="small" [text]="true" (onClick)="resetConfig()" pTooltip="Restaurar padrões do cenário" />
+          </div>
+          <div class="cmp-fields">
+            @for (f of fields(); track f.key) {
+              <label class="field" [pTooltip]="f.help" tooltipPosition="top">
+                <span>{{ fieldLabel(f) }}</span>
+                @switch (f.kind) {
+                  @case ('number') {
+                    <p-inputnumber
+                      [ngModel]="fieldValue(f.key)"
+                      (ngModelChange)="setField(f.key, $event)"
+                      [min]="f.min"
+                      [max]="f.max"
+                      [step]="f.step ?? 1"
+                      [minFractionDigits]="f.fractionDigits ?? 0"
+                      [maxFractionDigits]="f.fractionDigits ?? 0"
+                      [suffix]="f.suffix ?? ''"
+                      [showButtons]="true"
+                      [inputId]="'cmp-' + f.key"
+                      [ariaLabel]="fieldLabel(f)"
+                    />
+                  }
+                  @case ('select') {
+                    <p-select
+                      [options]="f.options ?? []"
+                      optionLabel="label"
+                      optionValue="value"
+                      [ngModel]="fieldValue(f.key)"
+                      (ngModelChange)="setField(f.key, $event)"
+                      [ariaLabel]="fieldLabel(f)"
+                      appendTo="body"
+                    />
+                  }
+                  @case ('boolean') {
+                    <p-toggleswitch [ngModel]="fieldValue(f.key)" (ngModelChange)="setField(f.key, $event)" [ariaLabel]="fieldLabel(f)" />
+                  }
+                  @default {
+                    <input pInputText [ngModel]="fieldValue(f.key)" (ngModelChange)="setField(f.key, $event)" [attr.aria-label]="fieldLabel(f)" />
+                  }
+                }
+                @if (errorOf(f.key); as e) {
+                  <small class="err" role="alert">{{ e }}</small>
+                }
+              </label>
+            }
+          </div>
+        }
+
+        <div class="row">
+          <p-button
+            label="Run comparison"
+            icon="pi pi-play"
+            (onClick)="submit()"
+            [disabled]="!canSubmit()"
+            [loading]="submitting()"
+            pTooltip="Comparar estratégias"
+            data-testid="run-comparison"
+          />
+          @if (isRunning()) {
+            <p-button label="Cancel" icon="pi pi-stop" severity="danger" [outlined]="true" (onClick)="cancel()" pTooltip="Cancelar" />
+          }
+        </div>
+      </div>
+    </section>
+
+    <section class="rl-panel" aria-labelledby="cmp-prev-title">
+      <div class="rl-panel-header">
+        <h2 id="cmp-prev-title"><i class="pi pi-history" aria-hidden="true"></i> Previous comparisons</h2>
+        <span class="grow"></span>
+        <p-button icon="pi pi-refresh" size="small" [text]="true" (onClick)="loadPrevious()" ariaLabel="Refresh comparisons" [loading]="previousLoading()" />
+      </div>
+      <div class="rl-panel-body flush prev-list">
+        @for (c of previous(); track c.id) {
+          <button type="button" class="prev-item" [class.active]="comparison()?.id === c.id" (click)="open(c.id)">
+            <span class="row">
+              <span class="num">{{ c.id }}</span>
+              <rl-status-tag [status]="c.status" />
+            </span>
+            <span class="small">{{ c.name || catalog.scenarioName(c.scenarioId) }}</span>
+            <span class="subtle small">{{ c.strategies.length }} strategies · {{ formatDateTime(c.createdAt) }}</span>
+          </button>
+        } @empty {
+          <rl-empty-state icon="pi pi-history" title="No comparisons yet" />
+        }
+      </div>
+    </section>
+  </div>
+
+  @if (comparison(); as c) {
+    <section class="rl-panel" aria-labelledby="cmp-result-title" data-testid="comparison-result">
+      <div class="rl-panel-header">
+        <h2 id="cmp-result-title"><i class="pi pi-table" aria-hidden="true"></i> {{ c.name || c.id }}</h2>
+        <rl-status-tag [status]="c.status" />
+        <span class="muted small">{{ catalog.scenarioName(c.scenarioId) }} · {{ c.repetitions }} repetitions · {{ c.warmupRuns }} warm-up</span>
+      </div>
+      <div class="rl-panel-body stack">
+        @if (c.disclaimer) {
+          <div class="callout tone-wait" role="note">
+            <i class="pi pi-info-circle" aria-hidden="true"></i>
+            <span><strong>Read before comparing:</strong> {{ c.disclaimer }}</span>
+          </div>
+        }
+        @if (isRunning() || c.progress) {
+          <div>
+            <div class="row small muted">
+              <span>Progress {{ c.progress?.completedRuns ?? 0 }}/{{ c.progress?.totalRuns ?? 0 }} runs</span>
+              @if (isRunning() && c.progress?.currentStrategy) {
+                <span>· running {{ catalog.strategyName(c.progress?.currentStrategy) }}</span>
+              }
+            </div>
+            <p-progressbar [value]="progress()" [showValue]="true" aria-label="Comparison progress" />
+          </div>
+        }
+
+        @if (rows().length) {
+          <p-table [value]="rows()" dataKey="strategy" size="small" styleClass="table-mono" [scrollable]="true" [tableStyle]="{ 'min-width': '110rem' }">
+            <ng-template #header>
+              <tr>
+                <th scope="col" pFrozenColumn>Strategy</th>
+                <th scope="col">Runs</th>
+                <th scope="col">Total time</th>
+                <th scope="col">Avg latency</th>
+                <th scope="col">p95</th>
+                <th scope="col">Throughput</th>
+                <th scope="col">Started</th>
+                <th scope="col">Committed</th>
+                <th scope="col">Rollbacks</th>
+                <th scope="col">Business rejections</th>
+                <th scope="col">Conflicts</th>
+                <th scope="col">Retries</th>
+                <th scope="col">Lock wait</th>
+                <th scope="col">Inconsistencies</th>
+                <th scope="col">Final state</th>
+                <th scope="col">Consistency preserved</th>
+              </tr>
+            </ng-template>
+            <ng-template #body let-r>
+              <tr>
+                <td pFrozenColumn>
+                  <div>{{ r.strategyName }}</div>
+                  @if (r.experimentIds.length) {
+                    <a class="small" [routerLink]="['/experiments', r.experimentIds[r.experimentIds.length - 1]]">last run</a>
+                  }
+                </td>
+                <td class="mono">{{ r.measuredRuns }}</td>
+                <td class="mono">{{ formatMs(r.totalTimeMs) }}</td>
+                <td class="mono">{{ formatMs(r.avgLatencyMs, 1) }}</td>
+                <td class="mono">{{ formatMs(r.p95LatencyMs) }}</td>
+                <td class="mono">{{ formatNumber(r.throughputTps, 2) }} tx/s</td>
+                <td class="mono">{{ formatNumber(r.started, 1) }}</td>
+                <td class="mono">{{ formatNumber(r.committed, 1) }}</td>
+                <td class="mono">{{ formatNumber(r.rolledBack, 1) }}</td>
+                <td class="mono">{{ formatNumber(r.businessRejections, 1) }}</td>
+                <td class="mono">{{ formatNumber(r.conflicts, 1) }}</td>
+                <td class="mono">{{ formatNumber(r.retries, 1) }}</td>
+                <td class="mono">{{ formatMs(r.lockWaitTimeMs) }}</td>
+                <td class="mono">{{ formatNumber(r.inconsistencies, 1) }}</td>
+                <td class="mono small final">
+                  <span [class]="'pill ' + (r.finalStateOk ? 'tone-commit' : 'tone-rollback')">{{ r.finalStateOk ? 'OK' : 'INVÁLIDA' }}</span>
+                  {{ r.finalState }}
+                </td>
+                <td>
+                  @if (r.consistencyPreserved) {
+                    <span class="pill tone-commit"><i class="pi pi-shield" aria-hidden="true"></i>Yes ({{ r.consistentRuns }}/{{ r.consistentRuns + r.inconsistentRuns }})</span>
+                  } @else {
+                    <span class="pill tone-conflict"><i class="pi pi-exclamation-triangle" aria-hidden="true"></i>No ({{ r.inconsistentRuns }} inconsistent)</span>
+                  }
+                </td>
+              </tr>
+            </ng-template>
+          </p-table>
+          <p class="muted small">Metrics are averages over the measured runs (warm-up runs excluded). Numbers are measured on this machine — use them to understand trade-offs, not to crown a winner.</p>
+
+          @if (charts(); as ch) {
+            <div class="grid grid-3">
+              <div class="rl-panel">
+                <div class="rl-panel-header"><h3>Latency & lock wait (ms)</h3></div>
+                <div class="rl-panel-body chart-box"><p-chart type="bar" [data]="ch.latency.data" [options]="ch.latency.options" height="240px" ariaLabel="Latency by strategy" /></div>
+              </div>
+              <div class="rl-panel">
+                <div class="rl-panel-header"><h3>Transaction outcomes</h3></div>
+                <div class="rl-panel-body chart-box"><p-chart type="bar" [data]="ch.outcomes.data" [options]="ch.outcomes.options" height="240px" ariaLabel="Outcomes by strategy" /></div>
+              </div>
+              <div class="rl-panel">
+                <div class="rl-panel-header"><h3>Throughput (tx/s)</h3></div>
+                <div class="rl-panel-body chart-box"><p-chart type="bar" [data]="ch.throughput.data" [options]="ch.throughput.options" height="240px" ariaLabel="Throughput by strategy" /></div>
+              </div>
+            </div>
+          }
+        } @else if (isRunning()) {
+          <rl-empty-state icon="pi pi-spin pi-spinner" title="Comparison running" message="Results appear when each strategy finishes its measured runs." />
+        } @else {
+          <rl-empty-state icon="pi pi-table" title="No results" message="This comparison produced no results." />
+        }
+      </div>
+    </section>
+  }
+</div>

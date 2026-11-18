@@ -1,0 +1,276 @@
+<p-tabs [value]="tab()" (valueChange)="tab.set($any($event))" [scrollable]="true">
+  <p-tablist>
+    <p-tab value="metrics"><i class="pi pi-chart-bar" aria-hidden="true"></i> Metrics</p-tab>
+    <p-tab value="logs"><i class="pi pi-align-left" aria-hidden="true"></i> Logs <span class="tab-count num">{{ events().length }}</span></p-tab>
+    <p-tab value="violations">
+      <i class="pi pi-exclamation-triangle" aria-hidden="true"></i> Violations
+      @if (result()?.violations?.length) {
+        <span class="tab-count bad num">{{ result()?.violations?.length }}</span>
+      }
+    </p-tab>
+    <p-tab value="observations"><i class="pi pi-eye" aria-hidden="true"></i> Observations</p-tab>
+    <p-tab value="lockgraph"><i class="pi pi-share-alt" aria-hidden="true"></i> Lock graph</p-tab>
+    <p-tab value="code"><i class="pi pi-code" aria-hidden="true"></i> Code</p-tab>
+    <p-tab value="recommendations"><i class="pi pi-lightbulb" aria-hidden="true"></i> Recommendations</p-tab>
+  </p-tablist>
+  <p-tabpanels>
+    <!-- Metrics -->
+    <p-tabpanel value="metrics">
+      @if (tab() === 'metrics') {
+        @if (cards(); as list) {
+          <div class="metrics-layout">
+            <div class="grid grid-kpi">
+              @for (c of list; track c.label) {
+                <rl-kpi-card [label]="c.label" [value]="c.value" [icon]="c.icon" [tone]="c.tone" />
+              }
+            </div>
+            @if (metricsChart(); as ch) {
+              <div class="chart-box small">
+                <p-chart type="bar" [data]="ch.data" [options]="ch.options" height="180px" ariaLabel="Transaction outcome counts" />
+              </div>
+            }
+          </div>
+          @if (result()?.environment; as env) {
+            <details class="env">
+              <summary class="muted small">Environment</summary>
+              <dl class="kv">
+                @for (kv of entries(env); track kv[0]) {
+                  <dt>{{ kv[0] }}</dt>
+                  <dd>{{ kv[1] }}</dd>
+                }
+              </dl>
+            </details>
+          }
+        } @else if (events().length) {
+          <p class="muted small">Live counts from the events received so far — final metrics are computed by the backend when the experiment ends.</p>
+          <div class="grid grid-kpi">
+            @for (c of live(); track c.label) {
+              <rl-kpi-card [label]="c.label" [value]="c.value" [icon]="c.icon" [tone]="c.tone" />
+            }
+          </div>
+        } @else if (loading()) {
+          <p-skeleton height="6rem" />
+        } @else {
+          <rl-empty-state icon="pi pi-chart-bar" title="No metrics yet" message="Metrics appear when an experiment runs." />
+        }
+      }
+    </p-tabpanel>
+
+    <!-- Logs -->
+    <p-tabpanel value="logs">
+      @if (tab() === 'logs') {
+        <div class="row logs-bar">
+          <span class="p-input-icon-left grow">
+            <input
+              pInputText
+              type="search"
+              class="w-full"
+              placeholder="Filter log lines (worker, type, message…)"
+              [ngModel]="logFilter()"
+              (ngModelChange)="logFilter.set($event)"
+              aria-label="Filter log lines"
+            />
+          </span>
+          <span class="num small muted">{{ logLines().length }} lines</span>
+        </div>
+        @if (logLines().length) {
+          <cdk-virtual-scroll-viewport itemSize="22" class="log-viewport" aria-label="Raw event log">
+            <div *cdkVirtualFor="let l of logLines(); trackBy: trackSeq" [class]="'log-line tone-' + l.tone">{{ l.text }}</div>
+          </cdk-virtual-scroll-viewport>
+        } @else {
+          <rl-empty-state icon="pi pi-align-left" title="No log lines" />
+        }
+      }
+    </p-tabpanel>
+
+    <!-- Violations -->
+    <p-tabpanel value="violations">
+      @if (tab() === 'violations') {
+        @if (result(); as r) {
+          @if (r.violations.length) {
+            <p-table [value]="r.violations" size="small" styleClass="table-mono" [tableStyle]="{ 'min-width': '60rem' }">
+              <ng-template #header>
+                <tr>
+                  <th scope="col">Severity</th>
+                  <th scope="col">Rule</th>
+                  <th scope="col">Expected</th>
+                  <th scope="col">Actual</th>
+                  <th scope="col">Difference</th>
+                  <th scope="col">Transactions</th>
+                  <th scope="col">Possible cause</th>
+                  <th scope="col">Recommended</th>
+                </tr>
+              </ng-template>
+              <ng-template #body let-v>
+                <tr>
+                  <td><rl-status-tag [status]="v.severity" /></td>
+                  <td>
+                    <div class="mono">{{ v.rule }}</div>
+                    <div class="subtle small">{{ v.kind }} — {{ v.description }}</div>
+                  </td>
+                  <td class="mono">{{ v.expected ?? '—' }}</td>
+                  <td class="mono bad">{{ v.actual ?? '—' }}</td>
+                  <td class="mono">{{ v.difference ?? '—' }}</td>
+                  <td class="mono small">{{ v.transactions.join(', ') || '—' }}</td>
+                  <td class="small">{{ v.possibleCause ?? '—' }}</td>
+                  <td>
+                    <div class="row">
+                      @for (s of v.recommendedStrategies; track s) {
+                        <span class="pill tone-commit">{{ catalog.strategyName(s) }}</span>
+                      }
+                    </div>
+                  </td>
+                </tr>
+              </ng-template>
+            </p-table>
+          } @else {
+            <rl-empty-state icon="pi pi-shield" title="No violations" message="Every business invariant held for this run." />
+          }
+        } @else {
+          <rl-empty-state icon="pi pi-exclamation-triangle" [title]="running() ? 'Evaluated at the end of the run' : 'No result yet'" />
+        }
+      }
+    </p-tabpanel>
+
+    <!-- Observations -->
+    <p-tabpanel value="observations">
+      @if (tab() === 'observations') {
+        @if (result()?.observations?.length) {
+          <div class="grid grid-3">
+            @for (o of result()!.observations; track $index) {
+              <section class="rl-panel obs" [class.reproduced]="o.reproduced">
+                <div class="rl-panel-header">
+                  <h3>{{ o.phenomenon.replaceAll('_', ' ') }}</h3>
+                  <span class="grow"></span>
+                  @if (o.reproduced) {
+                    <span class="pill tone-conflict"><i class="pi pi-exclamation-triangle" aria-hidden="true"></i>Reproduced</span>
+                  } @else {
+                    <span class="pill tone-commit"><i class="pi pi-shield" aria-hidden="true"></i>Prevented by PostgreSQL isolation</span>
+                  }
+                </div>
+                <div class="rl-panel-body stack">
+                  <div class="row small">
+                    <span class="pill tone-neutral">requested {{ o.isolationLevel }}</span>
+                    <span class="pill tone-info">effective {{ o.effectiveIsolationLevel }}</span>
+                  </div>
+                  <p>{{ o.outcome }}</p>
+                  @if (o.values) {
+                    <dl class="kv">
+                      @for (kv of entries(o.values); track kv[0]) {
+                        <dt>{{ kv[0] }}</dt>
+                        <dd>{{ kv[1] }}</dd>
+                      }
+                    </dl>
+                  }
+                  @if (o.note) {
+                    <p class="muted small">{{ o.note }}</p>
+                  }
+                </div>
+              </section>
+            }
+          </div>
+        } @else {
+          <rl-empty-state icon="pi pi-eye" title="No isolation observations" message="Observations are produced by isolation experiments (Isolation Lab)." />
+        }
+      }
+    </p-tabpanel>
+
+    <!-- Lock graph -->
+    <p-tabpanel value="lockgraph">
+      @if (tab() === 'lockgraph') {
+        <rl-lock-graph [graph]="result()?.lockGraph" />
+      }
+    </p-tabpanel>
+
+    <!-- Code -->
+    <p-tabpanel value="code">
+      @if (tab() === 'code') {
+        @if (codeLoading()) {
+          <p-skeleton height="18rem" />
+        } @else if (code(); as c) {
+          <div class="stack">
+            <div class="row">
+              <p-select
+                [options]="snippetOptions()"
+                [ngModel]="snippetIndex()"
+                (ngModelChange)="snippetIndex.set($event)"
+                ariaLabel="Code snippet"
+                styleClass="snippet-select"
+              />
+              @if (currentSnippet(); as s) {
+                <span class="muted small mono">{{ s.source }}</span>
+              }
+              <span class="grow"></span>
+              <a [routerLink]="['/code']" [queryParams]="{ scenarioId: scenarioId(), strategy: strategy() }" class="small">
+                <i class="pi pi-external-link" aria-hidden="true"></i> Open in Code Explorer
+              </a>
+            </div>
+            @if (currentSnippet(); as s) {
+              <rl-monaco-editor [value]="s.code" [language]="s.language" height="340px" />
+            } @else {
+              <rl-empty-state icon="pi pi-code" title="No snippets for this strategy" />
+            }
+            @if (c.explanation) {
+              <p class="muted">{{ c.explanation }}</p>
+            }
+          </div>
+        } @else if (codeError()) {
+          <rl-empty-state icon="pi pi-code" title="Code not available" message="The backend has no code example for this scenario/strategy." />
+        } @else {
+          <rl-empty-state icon="pi pi-code" title="Select a scenario and strategy" />
+        }
+      }
+    </p-tabpanel>
+
+    <!-- Recommendations -->
+    <p-tabpanel value="recommendations">
+      @if (tab() === 'recommendations') {
+        @if (sortedRecommendations().length) {
+          <p-accordion [multiple]="true" [value]="[sortedRecommendations()[0].id]">
+            @for (rec of sortedRecommendations(); track rec.id) {
+              <p-accordion-panel [value]="rec.id">
+                <p-accordion-header>
+                  <span class="row">
+                    <span class="pill tone-read num">P{{ rec.priority }}</span>
+                    <span>{{ rec.title }}</span>
+                  </span>
+                </p-accordion-header>
+                <p-accordion-content>
+                  <div class="stack">
+                    <div class="small muted"><i class="pi pi-bolt" aria-hidden="true"></i> Trigger: {{ rec.trigger }}</div>
+                    <p>{{ rec.justification }}</p>
+                    <div class="grid grid-2">
+                      <div>
+                        <h4 class="list-title good"><i class="pi pi-plus-circle" aria-hidden="true"></i> Benefits</h4>
+                        <ul class="rl-list">
+                          @for (b of rec.benefits; track $index) {
+                            <li>{{ b }}</li>
+                          }
+                        </ul>
+                      </div>
+                      <div>
+                        <h4 class="list-title warn"><i class="pi pi-minus-circle" aria-hidden="true"></i> Trade-offs</h4>
+                        <ul class="rl-list">
+                          @for (t of rec.tradeOffs; track $index) {
+                            <li>{{ t }}</li>
+                          }
+                        </ul>
+                      </div>
+                    </div>
+                    <div class="row">
+                      @for (s of rec.strategies; track s) {
+                        <span class="pill tone-commit">{{ catalog.strategyName(s) }}</span>
+                      }
+                    </div>
+                  </div>
+                </p-accordion-content>
+              </p-accordion-panel>
+            }
+          </p-accordion>
+        } @else {
+          <rl-empty-state icon="pi pi-lightbulb" title="No recommendations" [message]="result() ? 'Nothing to recommend for this run.' : 'Recommendations are computed at the end of the run.'" />
+        }
+      }
+    </p-tabpanel>
+  </p-tabpanels>
+</p-tabs>

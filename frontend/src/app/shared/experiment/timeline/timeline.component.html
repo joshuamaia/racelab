@@ -1,0 +1,230 @@
+<div class="tl-toolbar" role="toolbar" aria-label="Timeline controls">
+  <div class="row">
+    <p-button icon="pi pi-search-minus" [text]="true" size="small" severity="secondary" (onClick)="zoomOut()" ariaLabel="Zoom out" pTooltip="Zoom out (time scale)" />
+    <span class="pill tone-neutral num" [pTooltip]="zoom() === 0 ? 'Compact: rows without time spacing' : '1 ms of elapsed time = ' + zoom() + ' px'">
+      <i class="pi pi-clock" aria-hidden="true"></i>{{ zoom() === 0 ? 'compact' : zoom() + ' px/ms' }}
+    </span>
+    <p-button icon="pi pi-search-plus" [text]="true" size="small" severity="secondary" (onClick)="zoomIn()" ariaLabel="Zoom in" pTooltip="Zoom in (time scale)" />
+  </div>
+
+  <p-multiselect
+    [options]="workerOptions()"
+    [ngModel]="workerFilter()"
+    (ngModelChange)="workerFilter.set($event)"
+    placeholder="Workers"
+    [maxSelectedLabels]="2"
+    selectedItemsLabel="{0} workers"
+    size="small"
+    ariaLabel="Filter by worker"
+    styleClass="tl-filter"
+  />
+  <p-multiselect
+    [options]="txOptions()"
+    [ngModel]="txFilter()"
+    (ngModelChange)="txFilter.set($event)"
+    placeholder="Transactions"
+    [filter]="true"
+    [maxSelectedLabels]="1"
+    selectedItemsLabel="{0} transactions"
+    size="small"
+    ariaLabel="Filter by transaction"
+    styleClass="tl-filter"
+  />
+  <p-multiselect
+    [options]="typeOptions"
+    [ngModel]="typeFilter()"
+    (ngModelChange)="typeFilter.set($event)"
+    placeholder="Event types"
+    [filter]="true"
+    [maxSelectedLabels]="1"
+    selectedItemsLabel="{0} types"
+    size="small"
+    ariaLabel="Filter by event type"
+    styleClass="tl-filter"
+  />
+  @if (hasFilters()) {
+    <p-button label="Clear" icon="pi pi-filter-slash" [text]="true" size="small" (onClick)="clearFilters()" />
+  }
+  <p-button
+    [label]="'Conflicts (' + conflictCount() + ')'"
+    icon="pi pi-exclamation-triangle"
+    size="small"
+    [outlined]="!highlightConflicts()"
+    [severity]="highlightConflicts() ? 'warn' : 'secondary'"
+    (onClick)="highlightConflicts.set(!highlightConflicts())"
+    [ariaLabel]="'Highlight conflicts'"
+    pTooltip="Highlight conflicts, deadlocks, serialization failures and inconsistencies"
+    [attr.aria-pressed]="highlightConflicts()"
+  />
+
+  <span class="grow"></span>
+
+  @if (!replay.active()) {
+    <p-button
+      label="Replay"
+      icon="pi pi-replay"
+      size="small"
+      [outlined]="true"
+      [disabled]="!events().length || live()"
+      (onClick)="startReplay()"
+      pTooltip="Replay the stored events with their original timing"
+    />
+  } @else {
+    <div class="row tl-replay" role="group" aria-label="Replay controls">
+      @if (replay.playing()) {
+        <p-button icon="pi pi-pause" size="small" [text]="true" (onClick)="replay.pause()" ariaLabel="Pause replay" />
+      } @else {
+        <p-button icon="pi pi-play" size="small" [text]="true" (onClick)="replay.play()" ariaLabel="Play replay" />
+      }
+      <p-button icon="pi pi-step-forward" size="small" [text]="true" (onClick)="replay.stepForward()" ariaLabel="Next event" pTooltip="Next event" />
+      <p-slider
+        [ngModel]="replay.position()"
+        (ngModelChange)="replay.seek($event)"
+        [min]="0"
+        [max]="replay.total()"
+        styleClass="tl-scrubber"
+        ariaLabel="Replay position"
+      />
+      <span class="num small">{{ replay.position() }}/{{ replay.total() }}</span>
+      <p-select
+        [options]="speeds"
+        [ngModel]="replay.speed()"
+        (ngModelChange)="replay.speed.set($event)"
+        size="small"
+        ariaLabel="Replay speed"
+      />
+      <p-button icon="pi pi-times" size="small" [text]="true" severity="secondary" (onClick)="replay.exit()" ariaLabel="Exit replay" pTooltip="Exit replay" />
+    </div>
+  }
+  <p-button icon="pi pi-download" size="small" [text]="true" severity="secondary" (onClick)="exportMenu.toggle($event)" ariaLabel="Export timeline" pTooltip="Export timeline" [disabled]="!events().length" />
+  <p-menu #exportMenu [model]="exportItems" [popup]="true" appendTo="body" />
+</div>
+
+<div class="tl-legend" aria-label="Legend">
+  @for (t of tones; track t[0]) {
+    <span [class]="'tl-legend-item tone-' + t[0]"><span class="swatch" aria-hidden="true"></span>{{ t[1] }}</span>
+  }
+  <span class="tl-legend-item"><span class="pill tone-info"><i class="pi pi-database" aria-hidden="true"></i>DB</span> observed in PostgreSQL</span>
+  <span class="tl-legend-item"><span class="lock-swatch holding" aria-hidden="true"></span>holding lock</span>
+  <span class="tl-legend-item"><span class="lock-swatch waiting" aria-hidden="true"></span>waiting for lock</span>
+  <span class="grow"></span>
+  <span class="num small muted">{{ rows().length }} events · {{ formatMs(lastElapsed()) }} · {{ observedCount() }} DB-observed</span>
+</div>
+
+@if (!rows().length) {
+  <div class="tl-empty" [style.height]="height()">
+    @if (live()) {
+      <rl-empty-state icon="pi pi-spin pi-spinner" title="Waiting for events…" message="Events will appear here in real time as soon as the backend emits them." />
+    } @else if (events().length) {
+      <rl-empty-state icon="pi pi-filter-slash" title="No events match the filters" />
+    } @else {
+      <rl-empty-state icon="pi pi-sliders-v" title="No events yet" message="Run an experiment to see one column per transaction worker." />
+    }
+  </div>
+} @else {
+  <div
+    class="tl-scroller"
+    #scroller
+    [style.height]="height()"
+    (scroll)="onScroll(scroller)"
+    tabindex="0"
+    aria-label="Timeline: one column per worker, rows ordered by elapsed time"
+  >
+    <div class="tl-grid" [class.highlight]="highlightConflicts()" [style.gridTemplateColumns]="gridColumns()">
+      <div class="tl-head tl-gutter-head">elapsed</div>
+      @for (lane of lanes(); track lane.id) {
+        <div class="tl-head" [class.exp-lane]="lane.kind === 'experiment'">
+          <span class="lane-title">
+            <i [class]="lane.kind === 'experiment' ? 'pi pi-flag' : 'pi pi-user'" aria-hidden="true"></i>{{ lane.label }}
+          </span>
+          <span class="lane-meta num">
+            {{ lane.eventCount }} ev
+            @if (lane.instanceIds.length) {
+              · {{ lane.instanceIds.join(', ') }}
+            }
+          </span>
+        </div>
+      }
+
+      @for (row of rows(); track row.event.sequence) {
+        <div class="tl-row" [style.gridColumn]="'1 / -1'" [style.paddingTop.px]="row.gapPx">
+          @for (m of lockMarks(row); track m.lane) {
+            <span
+              class="tl-lock"
+              [class]="'tl-lock ' + m.mark"
+              [style.left]="'calc(var(--tl-gutter) + ' + m.lane + ' * var(--tl-lane-w) + 2px)'"
+              [attr.title]="m.mark === 'holding' ? 'Holding a lock' : 'Waiting for a lock'"
+            ></span>
+          }
+          <div class="tl-gutter num" [attr.title]="row.event.timestamp">
+            {{ row.event.elapsedTimeMs }}<span class="unit">ms</span>
+            @if (row.deltaMs > 0) {
+              <span class="delta">+{{ row.deltaMs }}</span>
+            }
+          </div>
+          @let s = style(row.event.eventType);
+          <article
+            class="tl-card"
+            [class]="'tl-card tone-' + s.tone"
+            [class.conflict]="row.conflict"
+            [class.dim]="highlightConflicts() && !row.conflict"
+            [style.gridColumn]="row.laneIndex + 2"
+          >
+            <header>
+              <i [class]="s.icon" aria-hidden="true"></i>
+              <span class="tl-type">{{ s.label }}</span>
+              @if (row.event.source === 'DATABASE_OBSERVED') {
+                <span class="pill tone-info tl-src" pTooltip="Observed in PostgreSQL (pg_blocking_pids, pg_stat_activity, SQLSTATE)">
+                  <i class="pi pi-database" aria-hidden="true"></i>observed in DB
+                </span>
+              } @else {
+                <span class="tl-src-inst" title="Instrumented: emitted by application code">app</span>
+              }
+              <button
+                type="button"
+                class="tl-expand"
+                (click)="toggleExpanded(row.event.sequence)"
+                [attr.aria-expanded]="isExpanded(row.event.sequence)"
+                [attr.aria-label]="(isExpanded(row.event.sequence) ? 'Hide' : 'Show') + ' details of event #' + row.event.sequence"
+              >
+                <i [class]="isExpanded(row.event.sequence) ? 'pi pi-chevron-up' : 'pi pi-chevron-down'" aria-hidden="true"></i>
+              </button>
+            </header>
+            @if (row.event.message) {
+              <p class="tl-msg">{{ row.event.message }}</p>
+            }
+            <footer class="num">
+              <span>#{{ row.event.sequence }}</span>
+              @if (row.event.transactionId) {
+                <span>{{ row.event.transactionId }}</span>
+              }
+              @if (row.event.resource) {
+                <span><i class="pi pi-box" aria-hidden="true"></i>{{ row.event.resource }}</span>
+              }
+              @if (row.event.connectionPid) {
+                <span>pid {{ row.event.connectionPid }}</span>
+              }
+            </footer>
+            @if (isExpanded(row.event.sequence)) {
+              <dl class="kv tl-details">
+                <dt>timestamp</dt><dd>{{ row.event.timestamp }}</dd>
+                <dt>thread</dt><dd>{{ row.event.threadName ?? '—' }}</dd>
+                <dt>instance</dt><dd>{{ row.event.instanceId ?? '—' }}</dd>
+                <dt>correlation</dt><dd>{{ row.event.correlationId ?? '—' }}</dd>
+                <dt>source</dt><dd>{{ row.event.source }}</dd>
+              </dl>
+              @if (hasDetails(row.event)) {
+                <pre class="code-block">{{ details(row.event) }}</pre>
+              }
+            }
+          </article>
+        </div>
+      }
+    </div>
+  </div>
+  @if ((live() || replay.active()) && !follow()) {
+    <div class="tl-follow">
+      <p-button label="Follow live" icon="pi pi-arrow-down" size="small" (onClick)="follow.set(true)" [rounded]="true" />
+    </div>
+  }
+}

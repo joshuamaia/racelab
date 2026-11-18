@@ -1,0 +1,42 @@
+{
+  "title": "RaceLab — Engine",
+  "uid": "racelab-engine",
+  "schemaVersion": 39,
+  "time": { "from": "now-30m", "to": "now" },
+  "refresh": "5s",
+  "panels": [
+    {
+      "type": "stat", "title": "Active experiments", "gridPos": { "x": 0, "y": 0, "w": 6, "h": 5 },
+      "datasource": { "type": "prometheus", "uid": "racelab-prometheus" },
+      "targets": [{ "expr": "sum by (instance_id) (racelab_experiments_active)", "legendFormat": "{{instance_id}}" }]
+    },
+    {
+      "type": "timeseries", "title": "Experiments finished (rate/min) by status", "gridPos": { "x": 6, "y": 0, "w": 18, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "racelab-prometheus" },
+      "targets": [{ "expr": "sum by (status, consistent) (rate(racelab_experiments_finished_total[1m])) * 60", "legendFormat": "{{status}} consistent={{consistent}}" }]
+    },
+    {
+      "type": "timeseries", "title": "Experiment duration p95 by strategy (s)", "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "racelab-prometheus" },
+      "targets": [{ "expr": "max by (strategy) (racelab_experiment_duration_seconds_max)", "legendFormat": "{{strategy}}" }]
+    },
+    {
+      "type": "timeseries", "title": "Hikari connections", "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "racelab-prometheus" },
+      "targets": [
+        { "expr": "sum by (instance_id) (hikaricp_connections_active)", "legendFormat": "active {{instance_id}}" },
+        { "expr": "sum by (instance_id) (hikaricp_connections_pending)", "legendFormat": "pending {{instance_id}}" }
+      ]
+    },
+    {
+      "type": "timeseries", "title": "JVM live threads", "gridPos": { "x": 0, "y": 16, "w": 12, "h": 7 },
+      "datasource": { "type": "prometheus", "uid": "racelab-prometheus" },
+      "targets": [{ "expr": "jvm_threads_live_threads", "legendFormat": "{{instance_id}}" }]
+    },
+    {
+      "type": "timeseries", "title": "HTTP p95 latency (s)", "gridPos": { "x": 12, "y": 16, "w": 12, "h": 7 },
+      "datasource": { "type": "prometheus", "uid": "racelab-prometheus" },
+      "targets": [{ "expr": "max by (uri) (http_server_requests_seconds_max{uri=~\"/api/.*\"})", "legendFormat": "{{uri}}" }]
+    }
+  ]
+}

@@ -1,0 +1,90 @@
+<div class="page">
+  @if (store.details(); as d) {
+    <header class="page-header">
+      <div>
+        <div class="row small muted">
+          <a routerLink="/history"><i class="pi pi-arrow-left" aria-hidden="true"></i> History</a>
+          <span>·</span>
+          <span>{{ d.category }}</span>
+          <span>·</span>
+          <span>{{ catalog.scenarioName(d.scenarioId) }}</span>
+        </div>
+        <h1>{{ d.name }}</h1>
+        <p class="subtitle num small">
+          created {{ fmtDate(d.createdAt) }} · started {{ fmtDate(d.startedAt) }} · finished {{ fmtDate(d.finishedAt) }}
+          @if (d.rerunOf) {
+            · rerun of <a [routerLink]="['/experiments', d.rerunOf]">{{ d.rerunOf }}</a>
+          }
+          @if (d.comparisonId) {
+            · comparison <a routerLink="/comparator" [queryParams]="{ comparisonId: d.comparisonId }">{{ d.comparisonId }}</a>
+          }
+        </p>
+      </div>
+      <div class="actions">
+        @if (running()) {
+          <p-button label="Cancel" icon="pi pi-stop" severity="danger" [outlined]="true" (onClick)="cancel()" pTooltip="Cancelar" ariaLabel="Cancel (Cancelar)" />
+        }
+        <p-button label="Rerun" icon="pi pi-replay" severity="secondary" (onClick)="rerun()" [disabled]="running() || session.busy() !== null" pTooltip="Reiniciar — new id, isolated data" data-testid="detail-rerun" />
+        <p-button label="Open in lab" icon="pi pi-external-link" severity="secondary" [text]="true" (onClick)="openInLab()" pTooltip="Duplicate this configuration in the lab" />
+        <p-button label="Export" icon="pi pi-download" severity="secondary" [text]="true" (onClick)="menu.toggle($event)" [disabled]="!store.isTerminal()" pTooltip="Exportar resultado" />
+        <p-menu #menu [model]="exportItems" [popup]="true" appendTo="body" />
+      </div>
+    </header>
+
+    <section class="rl-panel">
+      <div class="rl-panel-body"><rl-run-header [store]="store" (reconnect)="session.reconnect()" /></div>
+    </section>
+
+    <div class="detail-grid">
+      <section class="rl-panel">
+        <div class="rl-panel-header"><h2><i class="pi pi-align-justify" aria-hidden="true"></i> Timeline</h2></div>
+        <div class="rl-panel-body">
+          <rl-timeline [events]="store.events()" [live]="running()" [experimentId]="d.id" height="620px" />
+        </div>
+      </section>
+      <div class="side">
+        @if (store.isStepMode() && running()) {
+          <section class="rl-panel">
+            <div class="rl-panel-header"><h2><i class="pi pi-step-forward" aria-hidden="true"></i> Step-by-step</h2></div>
+            <div class="rl-panel-body">
+              <rl-step-panel [state]="store.stepState()" [busy]="session.busy() !== null" (release)="step($event)" (resume)="resume()" />
+            </div>
+          </section>
+        }
+        <section class="rl-panel">
+          <div class="rl-panel-header"><h2><i class="pi pi-table" aria-hidden="true"></i> Resource state</h2></div>
+          <div class="rl-panel-body">
+            <rl-resource-state [result]="store.result()" [loading]="store.resultLoading()" [running]="running()" />
+          </div>
+        </section>
+        <section class="rl-panel">
+          <div class="rl-panel-header"><h2><i class="pi pi-sliders-v" aria-hidden="true"></i> Configuration</h2></div>
+          <div class="rl-panel-body"><pre class="code-block">{{ configJson() }}</pre></div>
+        </section>
+      </div>
+    </div>
+
+    <section class="rl-panel">
+      <div class="rl-panel-body">
+        <rl-result-tabs
+          [result]="store.result()"
+          [events]="store.events()"
+          [scenarioId]="d.scenarioId"
+          [strategy]="d.strategy"
+          [loading]="store.resultLoading()"
+          [running]="running()"
+        />
+      </div>
+    </section>
+  } @else if (notFound()) {
+    <rl-empty-state icon="pi pi-question-circle" title="Experiment not found" [message]="session.error()">
+      <a routerLink="/history">Back to history</a>
+    </rl-empty-state>
+  } @else {
+    <div class="stack">
+      <p-skeleton height="3rem" width="50%" />
+      <p-skeleton height="2rem" />
+      <p-skeleton height="24rem" />
+    </div>
+  }
+</div>

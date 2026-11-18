@@ -1,0 +1,199 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <h1><i class="pi pi-code" aria-hidden="true"></i> Code Explorer</h1>
+      <p class="subtitle">
+        The exact Java / SQL that runs in the backend for each strategy, extracted from the source at build time.
+        Read-only — nothing is executed here.
+      </p>
+    </div>
+    <div class="actions">
+      <p-select
+        [options]="scenarioOptions()"
+        optionLabel="label"
+        optionValue="value"
+        [ngModel]="scenarioId()"
+        (ngModelChange)="onScenarioChange($event)"
+        [filter]="true"
+        placeholder="Scenario"
+        ariaLabel="Scenario"
+        styleClass="sel"
+      />
+      <p-select
+        [options]="strategyOptions()"
+        optionLabel="label"
+        optionValue="value"
+        [ngModel]="strategy()"
+        (ngModelChange)="onStrategyChange($event)"
+        placeholder="Strategy"
+        ariaLabel="Strategy"
+        styleClass="sel"
+      />
+    </div>
+  </header>
+
+  @if (loading()) {
+    <p-skeleton height="28rem" />
+  } @else if (example(); as c) {
+    <section class="rl-panel">
+      <div class="rl-panel-body">
+        <p-tabs [value]="tab()" (valueChange)="onTabChange($any($event))" [scrollable]="true">
+          <p-tablist>
+            <p-tab value="java"><i class="pi pi-code" aria-hidden="true"></i> Java <span class="cnt num">{{ c.java.length }}</span></p-tab>
+            <p-tab value="sql"><i class="pi pi-database" aria-hidden="true"></i> SQL <span class="cnt num">{{ c.sql.length }}</span></p-tab>
+            <p-tab value="typescript"><i class="pi pi-bolt" aria-hidden="true"></i> TypeScript</p-tab>
+            <p-tab value="configuration"><i class="pi pi-sliders-h" aria-hidden="true"></i> Configuration</p-tab>
+            <p-tab value="explanation"><i class="pi pi-book" aria-hidden="true"></i> Explanation</p-tab>
+          </p-tablist>
+          <p-tabpanels>
+            @for (lang of ['java', 'sql']; track lang) {
+              <p-tabpanel [value]="lang">
+                @if (tab() === lang) {
+                  @if (snippets().length) {
+                    <div class="row toolbar">
+                      <p-select
+                        [options]="snippetOptions()"
+                        optionLabel="label"
+                        optionValue="value"
+                        [ngModel]="snippetIndex()"
+                        (ngModelChange)="snippetIndex.set($event)"
+                        ariaLabel="Snippet"
+                        styleClass="sel"
+                      />
+                      @if (current(); as s) {
+                        <span class="muted small mono">{{ s.source }}</span>
+                      }
+                      <span class="grow"></span>
+                      @if (baseline() && !isBaselineStrategy()) {
+                        <label class="row small">
+                          <p-toggleswitch [ngModel]="diffView()" (ngModelChange)="diffView.set($event)" ariaLabel="Diff view" />
+                          Diff view
+                        </label>
+                      }
+                      <p-button icon="pi pi-copy" label="Copy" size="small" [text]="true" (onClick)="copy(current().code)" pTooltip="Copiar" />
+                      <p-button icon="pi pi-download" label="Download" size="small" [text]="true" (onClick)="download(current())" pTooltip="Baixar snippet" />
+                    </div>
+
+                    @if (baseline() && !isBaselineStrategy()) {
+                      @if (diffView()) {
+                        <div class="diff-labels">
+                          <span class="pill tone-rollback"><i class="pi pi-exclamation-triangle" aria-hidden="true"></i>Unsafe baseline (NONE)</span>
+                          <span class="pill tone-commit"><i class="pi pi-shield" aria-hidden="true"></i>{{ catalog.strategyName(strategy()) }}</span>
+                        </div>
+                        <rl-monaco-diff [original]="baseline()!.code" [modified]="current().code" [language]="lang" height="520px" />
+                      } @else {
+                        <div class="side-by-side">
+                          <div class="stack">
+                            <div class="row">
+                              <span class="pill tone-rollback"><i class="pi pi-exclamation-triangle" aria-hidden="true"></i>Unsafe baseline (NONE)</span>
+                              <span class="muted small mono ellipsis">{{ baseline()!.title }}</span>
+                              <span class="grow"></span>
+                              <p-button icon="pi pi-copy" size="small" [text]="true" (onClick)="copy(baseline().code)" ariaLabel="Copy baseline" />
+                            </div>
+                            <rl-monaco-editor [value]="baseline()!.code" [language]="baseline()!.language" height="480px" ariaLabel="Unsafe baseline code" />
+                          </div>
+                          <div class="stack">
+                            <div class="row">
+                              <span class="pill tone-commit"><i class="pi pi-shield" aria-hidden="true"></i>{{ catalog.strategyName(strategy()) }}</span>
+                              <span class="muted small mono ellipsis">{{ current().title }}</span>
+                            </div>
+                            <rl-monaco-editor [value]="current().code" [language]="current().language" height="480px" ariaLabel="Strategy code" />
+                          </div>
+                        </div>
+                      }
+                    } @else if (current(); as s) {
+                      <rl-monaco-editor [value]="s.code" [language]="s.language" height="480px" />
+                    }
+                  } @else {
+                    <rl-empty-state icon="pi pi-code" [title]="'No ' + lang.toUpperCase() + ' snippets for this strategy'" />
+                  }
+                }
+              </p-tabpanel>
+            }
+
+            <p-tabpanel value="typescript">
+              @if (tab() === 'typescript') {
+                @if (c.typescript; as ts) {
+                  <div class="row toolbar">
+                    <span>{{ ts.title }}</span>
+                    <span class="grow"></span>
+                    <p-button icon="pi pi-copy" label="Copy" size="small" [text]="true" (onClick)="copy(ts.code)" />
+                    <p-button icon="pi pi-download" label="Download" size="small" [text]="true" (onClick)="download(ts)" />
+                  </div>
+                  <rl-monaco-editor [value]="ts.code" language="typescript" height="420px" />
+                } @else {
+                  <rl-empty-state icon="pi pi-bolt" title="No TypeScript example" />
+                }
+              }
+            </p-tabpanel>
+
+            <p-tabpanel value="configuration">
+              @if (tab() === 'configuration') {
+                @if (configJson()) {
+                  <div class="row toolbar">
+                    <span class="muted small">Default configuration of the scenario (ExperimentConfiguration)</span>
+                    <span class="grow"></span>
+                    <p-button icon="pi pi-copy" label="Copy" size="small" [text]="true" (onClick)="copy(configJson())" />
+                    <p-button icon="pi pi-download" label="Download" size="small" [text]="true" (onClick)="downloadConfig()" />
+                  </div>
+                  <rl-monaco-editor [value]="configJson()" language="json" height="420px" />
+                } @else {
+                  <rl-empty-state icon="pi pi-sliders-h" title="No configuration" />
+                }
+              }
+            </p-tabpanel>
+
+            <p-tabpanel value="explanation">
+              @if (tab() === 'explanation') {
+                <div class="stack">
+                  @if (c.explanation) {
+                    <p class="explanation">{{ c.explanation }}</p>
+                  }
+                  @if (strategyInfo(); as info) {
+                    <p class="muted">{{ info.description }} <span class="pill tone-neutral">{{ info.family }} · {{ info.scope }}</span></p>
+                  }
+                  <div class="grid grid-2">
+                    <section class="rl-panel">
+                      <div class="rl-panel-header"><h3><i class="pi pi-plus-circle good" aria-hidden="true"></i> Advantages</h3></div>
+                      <div class="rl-panel-body">
+                        <ul class="rl-list">
+                          @for (a of c.advantages; track $index) {
+                            <li>{{ a }}</li>
+                          }
+                          @for (a of strategyInfo()?.advantages ?? []; track $index) {
+                            @if (!c.advantages.includes(a)) {
+                              <li>{{ a }}</li>
+                            }
+                          }
+                        </ul>
+                      </div>
+                    </section>
+                    <section class="rl-panel">
+                      <div class="rl-panel-header"><h3><i class="pi pi-minus-circle warn" aria-hidden="true"></i> Limitations</h3></div>
+                      <div class="rl-panel-body">
+                        <ul class="rl-list">
+                          @for (l of c.limitations; track $index) {
+                            <li>{{ l }}</li>
+                          }
+                          @for (l of strategyInfo()?.limitations ?? []; track $index) {
+                            @if (!c.limitations.includes(l)) {
+                              <li>{{ l }}</li>
+                            }
+                          }
+                        </ul>
+                      </div>
+                    </section>
+                  </div>
+                </div>
+              }
+            </p-tabpanel>
+          </p-tabpanels>
+        </p-tabs>
+      </div>
+    </section>
+  } @else if (notFound()) {
+    <rl-empty-state icon="pi pi-code" title="No code example" message="The backend has no code example for this scenario and strategy." />
+  } @else {
+    <rl-empty-state icon="pi pi-code" title="Select a scenario and a strategy" />
+  }
+</div>

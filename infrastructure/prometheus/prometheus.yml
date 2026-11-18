@@ -1,0 +1,14 @@
+global:
+  scrape_interval: 5s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: racelab-backend
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["racelab-backend:8080"]
+        labels:
+          instance_id: primary
+      - targets: ["racelab-backend-secondary:8080"]
+        labels:
+          instance_id: secondary

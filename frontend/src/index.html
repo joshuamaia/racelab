@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en" class="app-dark">
+<head>
+  <meta charset="utf-8">
+  <title>RaceLab</title>
+  <base href="/">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="RaceLab — Understand concurrency. Prevent inconsistency.">
+  <meta name="theme-color" content="#0b1220">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap">
+  <script>
+    // Apply the persisted theme before Angular boots to avoid a flash of the wrong theme.
+    try {
+      var p = JSON.parse(localStorage.getItem('racelab.preferences') || '{}');
+      if (p.theme === 'light') document.documentElement.classList.remove('app-dark');
+    } catch (e) {}
+  </script>
+</head>
+<body>
+  <app-root>
+    <div class="boot-splash" role="status" aria-live="polite">RaceLab is loading…</div>
+  </app-root>
+  <noscript>RaceLab requires JavaScript.</noscript>
+</body>
+</html>

@@ -1,0 +1,80 @@
+@if (graph(); as g) {
+  <div class="lg-head">
+    <span [class]="'pill tone-' + sourceTone()">
+      <i class="pi pi-database" aria-hidden="true"></i>{{ sourceLabel() }}
+    </span>
+    @if (g.cycle) {
+      <span class="pill tone-conflict"><i class="pi pi-sync" aria-hidden="true"></i>Cycle detected (deadlock)</span>
+    }
+    <span class="pill tone-neutral num">{{ g.nodes.length }} nodes · {{ g.edges.length }} edges</span>
+  </div>
+  @if (g.description) {
+    <p class="muted small lg-desc">{{ g.description }}</p>
+  }
+  @if (layout(); as l) {
+    <div class="lg-canvas">
+      <svg
+        [attr.viewBox]="'0 0 ' + l.width + ' ' + l.height"
+        [attr.width]="l.width"
+        [attr.height]="l.height"
+        role="img"
+        [attr.aria-label]="'Lock graph. ' + ariaSummary()"
+      >
+        <defs>
+          <marker id="rl-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" class="lg-arrow" />
+          </marker>
+        </defs>
+
+        @for (e of l.edges; track e.index) {
+          <g class="lg-edge">
+            <path [attr.d]="e.path" marker-end="url(#rl-arrow)" />
+          </g>
+        }
+
+        @for (n of l.nodes; track n.node.id) {
+          <g class="lg-node" [class.tx]="n.node.kind === 'TRANSACTION'" [class.lock]="n.node.kind !== 'TRANSACTION'" [class.victim]="n.node.victim">
+            <title>{{ n.node.label }}{{ n.node.victim ? ' — deadlock victim' : '' }}</title>
+            @if (n.node.kind === 'TRANSACTION') {
+              <ellipse [attr.cx]="n.x" [attr.cy]="n.y" [attr.rx]="n.hw" [attr.ry]="n.hh" />
+            } @else {
+              <rect [attr.x]="n.x - n.hw" [attr.y]="n.y - n.hh" [attr.width]="n.hw * 2" [attr.height]="n.hh * 2" rx="4" />
+            }
+            <text [attr.x]="n.x" [attr.y]="n.y - (n.lines.length - 1) * 7 + 4" text-anchor="middle">
+              @for (line of n.lines; track $index) {
+                <tspan [attr.x]="n.x" [attr.dy]="$index === 0 ? 0 : 14">{{ line }}</tspan>
+              }
+            </text>
+            @if (n.node.victim) {
+              <g class="lg-victim-badge">
+                <circle [attr.cx]="n.x + n.hw - 6" [attr.cy]="n.y - n.hh + 4" r="11" />
+                <text [attr.x]="n.x + n.hw - 6" [attr.y]="n.y - n.hh + 9" text-anchor="middle">!</text>
+              </g>
+              <text class="lg-victim-label" [attr.x]="n.x" [attr.y]="n.y + n.hh + 16" text-anchor="middle">⚠ victim</text>
+            }
+          </g>
+        }
+
+        @for (e of l.edges; track e.index) {
+          <g class="lg-edge-label">
+            <circle [attr.cx]="e.labelX" [attr.cy]="e.labelY" r="10" />
+            <text [attr.x]="e.labelX" [attr.y]="e.labelY + 4" text-anchor="middle">{{ e.index }}</text>
+          </g>
+        }
+      </svg>
+    </div>
+    <ol class="lg-legend">
+      @for (e of l.edges; track e.index) {
+        <li>
+          <span class="num">{{ e.from.node.label }}</span>
+          <span class="muted">— {{ e.label || 'waits for' }} →</span>
+          <span class="num">{{ e.to.node.label }}</span>
+        </li>
+      }
+    </ol>
+  } @else {
+    <rl-empty-state icon="pi pi-share-alt" title="Empty graph" [message]="emptyMessage()" />
+  }
+} @else {
+  <rl-empty-state icon="pi pi-share-alt" title="No lock graph" [message]="emptyMessage()" />
+}

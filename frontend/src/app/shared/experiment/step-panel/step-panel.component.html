@@ -1,0 +1,79 @@
+@if (state(); as s) {
+  <div class="sp-head">
+    <span class="pill tone-wait"><i class="pi pi-pause-circle" aria-hidden="true"></i>{{ s.pending.length }} paused at checkpoint</span>
+    @if (s.blocked.length) {
+      <span class="pill tone-conflict"><i class="pi pi-hourglass" aria-hidden="true"></i>{{ s.blocked.length }} blocked</span>
+    }
+    @if (remainingSeconds() !== null) {
+      <span class="pill tone-neutral num" pTooltip="Checkpoints are released automatically when the step timeout expires">
+        <i class="pi pi-stopwatch" aria-hidden="true"></i>{{ remainingSeconds() }}s left
+      </span>
+    }
+  </div>
+
+  <div class="row sp-actions">
+    <p-button
+      label="Next step"
+      icon="pi pi-step-forward"
+      size="small"
+      (onClick)="release.emit(s.suggestedWorkerId)"
+      [disabled]="busy() || !s.pending.length"
+      pTooltip="Próximo passo — releases the suggested worker"
+      ariaLabel="Next step (Próximo passo)"
+    />
+    <p-button
+      label="Resume"
+      icon="pi pi-fast-forward"
+      size="small"
+      severity="secondary"
+      [outlined]="true"
+      (onClick)="resume.emit()"
+      [disabled]="busy()"
+      pTooltip="Continuar — leave step mode and release all checkpoints"
+      ariaLabel="Resume (Continuar)"
+    />
+  </div>
+
+  <ul class="sp-list" aria-label="Pending checkpoints">
+    @for (p of s.pending; track p.workerId) {
+      <li [class.suggested]="p.workerId === s.suggestedWorkerId">
+        <div class="sp-worker">
+          <span class="num">{{ p.workerId }}</span>
+          @if (p.workerId === s.suggestedWorkerId) {
+            <span class="pill tone-read"><i class="pi pi-star" aria-hidden="true"></i>suggested</span>
+          }
+        </div>
+        <div class="sp-step"><span class="pill tone-wait num">{{ p.step }}</span> {{ p.description }}</div>
+        <p-button
+          label="Release"
+          icon="pi pi-play"
+          size="small"
+          [text]="true"
+          (onClick)="release.emit(p.workerId)"
+          [disabled]="busy()"
+          [ariaLabel]="'Release ' + p.workerId"
+        />
+      </li>
+    } @empty {
+      <li class="muted small">No worker is waiting at a checkpoint right now.</li>
+    }
+  </ul>
+
+  @if (s.blocked.length) {
+    <h4 class="sp-sub">Blocked</h4>
+    <ul class="sp-list blocked" aria-label="Blocked workers">
+      @for (b of s.blocked; track b.workerId) {
+        <li>
+          <div class="sp-worker"><i class="pi pi-hourglass" aria-hidden="true"></i><span class="num">{{ b.workerId }}</span></div>
+          <div class="sp-step">{{ b.reason }}</div>
+        </li>
+      }
+    </ul>
+  }
+} @else {
+  <rl-empty-state
+    icon="pi pi-step-forward"
+    title="Step mode idle"
+    message="Use “Run step-by-step” to pause every worker at checkpoints and release them one at a time."
+  />
+}

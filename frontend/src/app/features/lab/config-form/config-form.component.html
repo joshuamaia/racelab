@@ -1,0 +1,92 @@
+<ng-template #fieldTpl let-f>
+  <div class="cfg-field" [class.invalid]="!!err(f.key)">
+    <label [for]="f.inputId" [pTooltip]="f.help" tooltipPosition="top">
+      {{ f.displayLabel }}
+      @if (f.kind === 'number' && f.min !== undefined) {
+        <span class="range num">{{ f.min }}..{{ f.max }}</span>
+      }
+    </label>
+    @switch (f.kind) {
+      @case ('number') {
+        <p-inputnumber
+          [inputId]="f.inputId"
+          [ngModel]="num(f.key)"
+          (ngModelChange)="set(f.key, $event)"
+          [min]="f.min ?? null"
+          [max]="f.max ?? null"
+          [step]="f.step ?? 1"
+          [minFractionDigits]="f.fractionDigits ?? 0"
+          [maxFractionDigits]="f.fractionDigits ?? 0"
+          [suffix]="f.suffix ?? ''"
+          [showButtons]="true"
+          buttonLayout="horizontal"
+          [disabled]="disabled()"
+          [useGrouping]="false"
+          size="small"
+          fluid
+          [attr.data-testid]="'cfg-' + f.key"
+        />
+      }
+      @case ('select') {
+        <p-select
+          [inputId]="f.inputId"
+          [options]="f.selectOptions"
+          [ngModel]="value(f.key)"
+          (ngModelChange)="set(f.key, $event)"
+          [disabled]="disabled()"
+          size="small"
+          fluid
+          appendTo="body"
+        />
+      }
+      @case ('boolean') {
+        <p-toggleswitch [inputId]="f.inputId" [ngModel]="value(f.key)" (ngModelChange)="set(f.key, $event)" [disabled]="disabled()" />
+      }
+      @default {
+        @if (f.key === 'resourceCode' && templateOptions().length) {
+          <p-select
+            [inputId]="f.inputId"
+            [options]="templateOptions()"
+            [ngModel]="value(f.key)"
+            (ngModelChange)="set(f.key, $event)"
+            [disabled]="disabled()"
+            [editable]="true"
+            size="small"
+            fluid
+            appendTo="body"
+          />
+        } @else {
+          <input pInputText [id]="f.inputId" [ngModel]="value(f.key)" (ngModelChange)="set(f.key, $event)" [disabled]="disabled()" class="p-inputtext-sm w-full" />
+        }
+      }
+    }
+    @if (err(f.key); as msg) {
+      <small class="err" role="alert"><i class="pi pi-exclamation-circle" aria-hidden="true"></i> {{ msg }}</small>
+    }
+  </div>
+</ng-template>
+
+<div class="cfg-grid">
+  @for (f of fields().main; track f.key) {
+    <ng-container *ngTemplateOutlet="fieldTpl; context: { $implicit: f }" />
+  }
+</div>
+
+@if (fields().advanced.length) {
+  <p-accordion styleClass="cfg-advanced">
+    <p-accordion-panel value="advanced">
+      <p-accordion-header><span><i class="pi pi-sliders-h" aria-hidden="true"></i> Advanced ({{ fields().advanced.length }})</span></p-accordion-header>
+      <p-accordion-content>
+        <div class="cfg-grid">
+          @for (f of fields().advanced; track f.key) {
+            <ng-container *ngTemplateOutlet="fieldTpl; context: { $implicit: f }" />
+          }
+        </div>
+      </p-accordion-content>
+    </p-accordion-panel>
+  </p-accordion>
+}
+
+<div class="row cfg-actions">
+  <p-button label="Reset to defaults" icon="pi pi-refresh" size="small" [text]="true" severity="secondary" (onClick)="reset.emit()" [disabled]="disabled()" pTooltip="Restore the preset configuration" />
+</div>

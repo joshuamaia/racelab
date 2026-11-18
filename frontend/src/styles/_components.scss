@@ -1,0 +1,261 @@
+@use 'sass:list';
+// Shared visual building blocks.
+
+.rl-panel {
+  background: var(--rl-panel);
+  border: 1px solid var(--rl-border);
+  border-radius: var(--rl-radius);
+  box-shadow: var(--rl-shadow);
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+
+  > .rl-panel-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.6rem 0.85rem;
+    border-bottom: 1px solid var(--rl-border);
+    min-height: 44px;
+    flex-wrap: wrap;
+    h2,
+    h3 {
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--rl-muted);
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+    }
+  }
+  > .rl-panel-body {
+    padding: 0.85rem;
+    min-width: 0;
+    flex: 1;
+  }
+  > .rl-panel-body.flush {
+    padding: 0;
+  }
+}
+
+.muted {
+  color: var(--rl-muted);
+}
+.subtle {
+  color: var(--rl-subtle);
+}
+.small {
+  font-size: 0.8rem;
+}
+.num {
+  font-family: var(--rl-font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.nowrap {
+  white-space: nowrap;
+}
+.ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// ---- tones (always paired with icon + text) -------------------------------
+$tones: (
+  read: (var(--rl-blue), var(--rl-blue-bg)),
+  write: (var(--rl-purple), var(--rl-purple-bg)),
+  wait: (var(--rl-yellow), var(--rl-yellow-bg)),
+  conflict: (var(--rl-orange), var(--rl-orange-bg)),
+  commit: (var(--rl-green), var(--rl-green-bg)),
+  rollback: (var(--rl-red), var(--rl-red-bg)),
+  neutral: (var(--rl-grey), var(--rl-grey-bg)),
+  info: (var(--rl-cyan), var(--rl-cyan-bg)),
+);
+
+@each $name, $pair in $tones {
+  .tone-#{$name} {
+    --tone: #{list.nth($pair, 1)};
+    --tone-bg: #{list.nth($pair, 2)};
+  }
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.12rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--tone, var(--rl-grey));
+  background: var(--tone-bg, var(--rl-grey-bg));
+  border: 1px solid color-mix(in srgb, var(--tone, var(--rl-grey)) 35%, transparent);
+  white-space: nowrap;
+  font-family: var(--rl-font-mono);
+  i {
+    font-size: 0.72rem;
+  }
+}
+
+// ---- KPI cards -------------------------------------------------------------
+.kpi {
+  background: var(--rl-panel);
+  border: 1px solid var(--rl-border);
+  border-radius: var(--rl-radius);
+  padding: 0.8rem 0.95rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  position: relative;
+  overflow: hidden;
+  box-shadow: var(--rl-shadow);
+  &::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: var(--tone, var(--rl-blue));
+  }
+  .kpi-label {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--rl-muted);
+    i {
+      color: var(--tone, var(--rl-blue));
+    }
+  }
+  .kpi-value {
+    font-family: var(--rl-font-mono);
+    font-size: 1.45rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .kpi-hint {
+    font-size: 0.74rem;
+    color: var(--rl-subtle);
+  }
+}
+
+// ---- empty state -----------------------------------------------------------
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 0.4rem;
+  padding: 2rem 1rem;
+  color: var(--rl-muted);
+  > i {
+    font-size: 1.8rem;
+    color: var(--rl-subtle);
+  }
+  .empty-title {
+    font-weight: 600;
+    color: var(--rl-text);
+  }
+}
+
+// ---- callouts ---------------------------------------------------------------
+.callout {
+  display: flex;
+  gap: 0.65rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: var(--rl-radius);
+  border: 1px solid color-mix(in srgb, var(--tone, var(--rl-blue)) 40%, transparent);
+  background: var(--tone-bg, var(--rl-blue-bg));
+  color: var(--rl-text);
+  > i {
+    color: var(--tone, var(--rl-blue));
+    margin-top: 0.15rem;
+  }
+}
+
+// ---- key/value lists ---------------------------------------------------------
+.kv {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.3rem 0.9rem;
+  font-size: 0.85rem;
+  dt {
+    color: var(--rl-muted);
+  }
+  dd {
+    margin: 0;
+    font-family: var(--rl-font-mono);
+    word-break: break-word;
+  }
+}
+
+.code-block {
+  background: var(--rl-panel-2);
+  border: 1px solid var(--rl-border);
+  border-radius: var(--rl-radius-sm);
+  padding: 0.6rem 0.75rem;
+  font-family: var(--rl-font-mono);
+  font-size: 0.78rem;
+  max-height: 320px;
+  overflow: auto;
+}
+
+.table-mono td.mono,
+.mono-cell {
+  font-family: var(--rl-font-mono);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.rl-list {
+  margin: 0;
+  padding-left: 1.1rem;
+  li {
+    margin-bottom: 0.25rem;
+  }
+}
+
+.chart-box {
+  position: relative;
+  height: 260px;
+}
+.chart-box.small {
+  height: 180px;
+}
+
+.monaco-host {
+  height: 100%;
+  min-height: 260px;
+  border: 1px solid var(--rl-border);
+  border-radius: var(--rl-radius-sm);
+  overflow: hidden;
+}
+
+// PrimeNG tweaks
+.p-datatable .p-datatable-tbody > tr > td {
+  font-size: 0.85rem;
+}
+.p-tabpanels {
+  padding: 0.75rem 0 0 !important;
+  background: transparent !important;
+}
+.p-splitter {
+  border: none !important;
+  background: transparent !important;
+}
+.p-splitter-panel {
+  min-width: 0;
+  overflow: hidden;
+}
+.p-toast-message-text .p-toast-detail {
+  white-space: pre-line;
+  font-family: var(--rl-font-mono);
+  font-size: 0.75rem;
+}

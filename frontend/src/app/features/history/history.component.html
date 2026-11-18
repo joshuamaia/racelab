@@ -1,0 +1,163 @@
+<div class="page">
+  <div class="page-header">
+    <div>
+      <h1>Experiment History</h1>
+      <p class="subtitle">Every persisted run, with its configuration, outcome and consistency verdict.</p>
+    </div>
+    <div class="actions">
+      <p-button
+        [label]="'Compare selected (' + selection().length + ')'"
+        icon="pi pi-sliders-h"
+        size="small"
+        [disabled]="!canCompare()"
+        (onClick)="openCompare()"
+        pTooltip="Select 2 to 4 runs to compare their metrics side by side"
+      />
+      <p-button label="Refresh" icon="pi pi-refresh" size="small" [outlined]="true" (onClick)="load()" [loading]="loading()" />
+    </div>
+  </div>
+
+  <section class="rl-panel">
+    <div class="rl-panel-header filters" role="search" aria-label="History filters">
+      <p-select [options]="categoryOptions" [ngModel]="category()" (ngModelChange)="setCategory($event)" placeholder="Category" [showClear]="true" size="small" ariaLabel="Filter by category" />
+      <p-select [options]="statusOptions" [ngModel]="status()" (ngModelChange)="status.set($event); applyFilters()" placeholder="Status" [showClear]="true" size="small" ariaLabel="Filter by status" />
+      <p-select [options]="scenarioOptions()" [ngModel]="scenarioId()" (ngModelChange)="scenarioId.set($event); applyFilters()" placeholder="Scenario" [showClear]="true" [filter]="true" size="small" ariaLabel="Filter by scenario" />
+      <p-select [options]="strategyOptions()" [ngModel]="strategy()" (ngModelChange)="strategy.set($event); applyFilters()" placeholder="Strategy" [showClear]="true" [filter]="true" size="small" ariaLabel="Filter by strategy" />
+      @if (hasFilters()) {
+        <p-button label="Clear" icon="pi pi-filter-slash" size="small" [text]="true" (onClick)="clearFilters()" />
+      }
+      <span class="grow"></span>
+      <span class="num small muted">{{ total() }} experiments</span>
+    </div>
+    <div class="rl-panel-body flush">
+      <p-table
+        data-testid="history-table"
+        [value]="rows()"
+        [lazy]="true"
+        (onLazyLoad)="onLazy($event)"
+        [paginator]="true"
+        [rows]="pageSize()"
+        [first]="first()"
+        [rowsPerPageOptions]="pageSizes"
+        [totalRecords]="total()"
+        [loading]="loading()"
+        dataKey="id"
+        [selection]="selection()"
+        (selectionChange)="selection.set($event)"
+        size="small"
+        [tableStyle]="{ 'min-width': '78rem' }"
+      >
+        <ng-template #header>
+          <tr>
+            <th scope="col" style="width: 3rem"><p-tableHeaderCheckbox /></th>
+            <th scope="col">Id</th>
+            <th scope="col">Name / scenario</th>
+            <th scope="col">Strategy</th>
+            <th scope="col">Status</th>
+            <th scope="col">Consistency</th>
+            <th scope="col">Violations</th>
+            <th scope="col">Events</th>
+            <th scope="col">Duration</th>
+            <th scope="col">Created</th>
+            <th scope="col">Instance</th>
+            <th scope="col">Actions</th>
+          </tr>
+        </ng-template>
+        <ng-template #body let-e>
+          <tr>
+            <td><p-tableCheckbox [value]="e" [ariaLabel]="'Select ' + e.id" /></td>
+            <td class="mono-cell"><a [routerLink]="['/experiments', e.id]">{{ e.id }}</a></td>
+            <td>
+              <div>{{ e.name }}</div>
+              <div class="subtle small">{{ catalog.scenarioName(e.scenarioId) }}{{ e.warmup ? ' · warm-up' : '' }}{{ e.rerunOf ? ' · rerun of ' + e.rerunOf : '' }}</div>
+            </td>
+            <td>{{ catalog.strategyName(e.strategy) }}</td>
+            <td><rl-status-tag [status]="e.status" /></td>
+            <td><rl-consistency-tag [consistent]="e.consistent" /></td>
+            <td class="mono-cell">{{ e.violationCount ?? '—' }}</td>
+            <td class="mono-cell">{{ e.eventCount ?? '—' }}</td>
+            <td class="mono-cell">{{ formatMs(e.durationMs) }}</td>
+            <td class="mono-cell nowrap">{{ formatDateTime(e.createdAt) }}</td>
+            <td class="mono-cell">{{ e.instanceId ?? '—' }}</td>
+            <td class="nowrap">
+              <p-button icon="pi pi-eye" [text]="true" size="small" (onClick)="details(e)" [ariaLabel]="'Details of ' + e.id" pTooltip="Details / replay" />
+              <p-button
+                data-testid="history-rerun"
+                icon="pi pi-replay"
+                [text]="true"
+                size="small"
+                (onClick)="rerun(e)"
+                [loading]="busyId() === e.id"
+                [ariaLabel]="'Rerun ' + e.id"
+                pTooltip="Rerun (Reiniciar) with the same configuration"
+              />
+              <p-button icon="pi pi-copy" [text]="true" size="small" (onClick)="duplicate(e)" [ariaLabel]="'Duplicate configuration of ' + e.id" pTooltip="Open the lab with this configuration" />
+              <p-button icon="pi pi-download" [text]="true" size="small" (onClick)="openExport($event, e, exportMenu)" [ariaLabel]="'Export ' + e.id" pTooltip="Export" />
+              <p-button icon="pi pi-trash" [text]="true" size="small" severity="danger" (onClick)="remove(e)" [ariaLabel]="'Delete ' + e.id" pTooltip="Delete" />
+            </td>
+          </tr>
+        </ng-template>
+        <ng-template #emptymessage>
+          <tr>
+            <td colspan="12">
+              <rl-empty-state icon="pi pi-history" title="No experiments found" [message]="hasFilters() ? 'Try clearing the filters.' : 'Run an experiment in one of the labs.'" />
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+    </div>
+  </section>
+</div>
+
+<p-menu #exportMenu [model]="exportItems" [popup]="true" appendTo="body" />
+
+<p-dialog
+  header="Compare selected runs"
+  [visible]="compareVisible()"
+  (visibleChange)="compareVisible.set($event)"
+  [modal]="true"
+  [style]="{ width: 'min(1100px, 96vw)' }"
+  [dismissableMask]="true"
+>
+  @if (compareLoading()) {
+    <p-skeleton height="20rem" />
+  } @else {
+    <div class="compare-scroll">
+      <table class="compare-table">
+        <thead>
+          <tr>
+            <th scope="col">Metric</th>
+            @for (c of compared(); track c.experiment.id) {
+              <th scope="col">
+                <a class="num" [routerLink]="['/experiments', c.experiment.id]" (click)="compareVisible.set(false)">{{ c.experiment.id }}</a>
+                <div class="subtle small">{{ catalog.strategyName(c.experiment.strategy) }}</div>
+              </th>
+            }
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row">Consistency</th>
+            @for (c of compared(); track c.experiment.id) {
+              <td><rl-consistency-tag [consistent]="c.experiment.consistent" /></td>
+            }
+          </tr>
+          @for (row of metricRows; track row.label) {
+            <tr>
+              <th scope="row">{{ row.label }}</th>
+              @for (c of compared(); track c.experiment.id) {
+                <td class="num">{{ metricValue(c.metrics, row) }}</td>
+              }
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    <p class="muted small">Single runs are noisy: use the Strategy Comparator for repeated, warmed-up measurements.</p>
+  }
+  <ng-template #footer>
+    <a routerLink="/comparator" [queryParams]="comparatorQuery()" (click)="compareVisible.set(false)" class="small">
+      <i class="pi pi-sliders-h" aria-hidden="true"></i> Open in Strategy Comparator
+    </a>
+  </ng-template>
+</p-dialog>

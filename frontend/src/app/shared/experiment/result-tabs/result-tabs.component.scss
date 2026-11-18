@@ -1,0 +1,77 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+.tab-count {
+  font-size: 0.68rem;
+  background: var(--rl-grey-bg);
+  border-radius: 999px;
+  padding: 0 0.4rem;
+  margin-left: 0.25rem;
+  &.bad {
+    background: var(--rl-orange-bg);
+    color: var(--rl-orange);
+  }
+}
+.metrics-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+  @media (max-width: 1100px) {
+    grid-template-columns: 1fr;
+  }
+}
+.env {
+  margin-top: 0.8rem;
+  summary {
+    cursor: pointer;
+  }
+  .kv {
+    margin-top: 0.4rem;
+  }
+}
+.logs-bar {
+  margin-bottom: 0.5rem;
+  input {
+    width: 100%;
+    font-family: var(--rl-font-mono);
+    font-size: 0.8rem;
+  }
+}
+.log-viewport {
+  height: 340px;
+  background: var(--rl-panel-2);
+  border: 1px solid var(--rl-border);
+  border-radius: var(--rl-radius-sm);
+}
+.log-line {
+  height: 22px;
+  line-height: 22px;
+  font-family: var(--rl-font-mono);
+  font-size: 0.74rem;
+  white-space: pre;
+  padding: 0 0.6rem;
+  border-left: 3px solid var(--tone);
+  color: var(--rl-text);
+}
+td.bad {
+  color: var(--rl-red);
+  font-weight: 600;
+}
+.obs.reproduced {
+  border-color: var(--rl-orange);
+}
+.list-title {
+  font-size: 0.8rem;
+  margin-bottom: 0.3rem;
+  &.good i {
+    color: var(--rl-green);
+  }
+  &.warn i {
+    color: var(--rl-orange);
+  }
+}
+:host ::ng-deep .snippet-select {
+  min-width: 18rem;
+}

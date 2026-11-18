@@ -1,0 +1,253 @@
+<div class="page lab">
+  <header class="page-header">
+    <div>
+      <h1>{{ title() }}</h1>
+      <p class="subtitle">{{ description() }}</p>
+    </div>
+  </header>
+
+  @if (category() === 'ISOLATION') {
+    <section class="rl-panel">
+      <div class="rl-panel-header">
+        <h2><i class="pi pi-th-large" aria-hidden="true"></i> Isolation levels — SQL standard vs PostgreSQL</h2>
+        <span class="grow"></span>
+        <p-button
+          [icon]="showMatrix() ? 'pi pi-chevron-up' : 'pi pi-chevron-down'"
+          [text]="true"
+          size="small"
+          (onClick)="showMatrix.set(!showMatrix())"
+          [ariaLabel]="showMatrix() ? 'Hide matrix' : 'Show matrix'"
+          [attr.aria-expanded]="showMatrix()"
+        />
+      </div>
+      @if (showMatrix()) {
+        <div class="rl-panel-body"><rl-isolation-matrix /></div>
+      }
+    </section>
+  }
+
+  @if (category() === 'DISTRIBUTED') {
+    <section class="rl-panel">
+      <div class="rl-panel-header"><h2><i class="pi pi-sitemap" aria-hidden="true"></i> Backend instances</h2></div>
+      <div class="rl-panel-body">
+        <rl-instance-panel [target]="targetInstance()" (targetChange)="targetInstance.set($event)" />
+      </div>
+    </section>
+  }
+
+  <!-- Toolbar -->
+  <section class="rl-panel toolbar-panel">
+    <div class="lab-toolbar" role="toolbar" aria-label="Experiment controls">
+      <p-select
+        [options]="strategyOptions()"
+        [ngModel]="strategy()"
+        (ngModelChange)="strategy.set($event)"
+        placeholder="Strategy"
+        [disabled]="running()"
+        ariaLabel="Strategy"
+        styleClass="strategy-select"
+        appendTo="body"
+        data-testid="strategy-select"
+      />
+      <p-button
+        label="Run"
+        icon="pi pi-play"
+        (onClick)="run(false)"
+        [disabled]="!canRun()"
+        [loading]="session.busy() === 'create' || session.busy() === 'start'"
+        pTooltip="Executar"
+        ariaLabel="Run (Executar)"
+        data-testid="run-btn"
+      />
+      <p-button
+        label="Run step-by-step"
+        icon="pi pi-list-check"
+        severity="secondary"
+        (onClick)="run(true)"
+        [disabled]="!canRun() || !stepAvailable()"
+        pTooltip="Executar passo a passo"
+        ariaLabel="Run step-by-step (Executar passo a passo)"
+        data-testid="run-step-btn"
+      />
+      <p-button
+        label="Next step"
+        icon="pi pi-step-forward"
+        severity="secondary"
+        [outlined]="true"
+        (onClick)="nextStep()"
+        [disabled]="!store.stepState()?.pending?.length || session.busy() === 'step'"
+        pTooltip="Próximo passo"
+        ariaLabel="Next step (Próximo passo)"
+        data-testid="next-step-btn"
+      />
+      <p-button
+        label="Resume"
+        icon="pi pi-fast-forward"
+        severity="secondary"
+        [outlined]="true"
+        (onClick)="resume()"
+        [disabled]="!store.stepState()"
+        pTooltip="Continuar"
+        ariaLabel="Resume (Continuar)"
+      />
+      <p-button
+        label="Cancel"
+        icon="pi pi-stop"
+        severity="danger"
+        [outlined]="true"
+        (onClick)="cancel()"
+        [disabled]="!running()"
+        [loading]="session.busy() === 'cancel'"
+        pTooltip="Cancelar"
+        ariaLabel="Cancel (Cancelar)"
+        data-testid="cancel-btn"
+      />
+      <p-button
+        label="Restart"
+        icon="pi pi-replay"
+        severity="secondary"
+        [text]="true"
+        (onClick)="restart()"
+        [disabled]="!store.id() || running() || busy()"
+        pTooltip="Reiniciar — rerun with a new id and isolated data"
+        ariaLabel="Restart (Reiniciar)"
+      />
+      <span class="grow"></span>
+      <p-button
+        label="Compare strategies"
+        icon="pi pi-sliders-h"
+        severity="secondary"
+        [text]="true"
+        (onClick)="compare()"
+        [disabled]="!selectedPreset()"
+        pTooltip="Comparar estratégias"
+        ariaLabel="Compare strategies (Comparar estratégias)"
+      />
+      <p-button
+        label="Export"
+        icon="pi pi-download"
+        severity="secondary"
+        [text]="true"
+        (onClick)="exportMenu.toggle($event)"
+        [disabled]="!store.isTerminal()"
+        pTooltip="Exportar resultado"
+        ariaLabel="Export result (Exportar resultado)"
+      />
+      <p-menu #exportMenu [model]="exportItems" [popup]="true" appendTo="body" />
+    </div>
+    @if (strategyInfo(); as s) {
+      <div class="strategy-hint small muted"><i class="pi pi-info-circle" aria-hidden="true"></i> <strong>{{ s.name }}</strong> ({{ s.family }} · {{ s.scope }}) — {{ s.description }}</div>
+    }
+    @if (session.error(); as err) {
+      <div class="callout tone-rollback small" role="alert"><i class="pi pi-times-circle" aria-hidden="true"></i>{{ err }}</div>
+    }
+  </section>
+
+  <ng-template #catalogTpl>
+    <section class="rl-panel fill catalog-panel">
+      <div class="rl-panel-header"><h2><i class="pi pi-list" aria-hidden="true"></i> Experiments</h2></div>
+      <div class="rl-panel-body scroll">
+        @if (catalog.loaded()) {
+          <rl-preset-catalog [presets]="presets()" [selectedId]="selectedPreset()?.id ?? null" (select)="choosePreset($event)" />
+        } @else if (catalog.failed()) {
+          <rl-empty-state icon="pi pi-exclamation-circle" title="Catalog unavailable" message="Could not load /api/catalog." />
+        } @else {
+          <div class="stack"><p-skeleton height="4rem" /><p-skeleton height="4rem" /><p-skeleton height="4rem" /></div>
+        }
+      </div>
+    </section>
+    <section class="rl-panel fill">
+      <div class="rl-panel-header">
+        <h2><i class="pi pi-sliders-v" aria-hidden="true"></i> Configuration</h2>
+        @if (scenario(); as sc) {
+          <span class="muted small ellipsis grow" [title]="sc.invariant">{{ sc.name }}</span>
+        }
+      </div>
+      <div class="rl-panel-body scroll">
+        @if (config(); as c) {
+          @if (scenario(); as sc) {
+            <p class="small invariant"><i class="pi pi-shield" aria-hidden="true"></i> Invariant: <code>{{ sc.invariant }}</code></p>
+          }
+          <rl-config-form
+            [config]="c"
+            [scenario]="scenario()"
+            [errors]="errors()"
+            [disabled]="running()"
+            (configChange)="config.set($event)"
+            (reset)="resetConfig()"
+          />
+        } @else {
+          <p-skeleton height="10rem" />
+        }
+      </div>
+    </section>
+  </ng-template>
+
+  <ng-template #timelineTpl>
+    <section class="rl-panel fill">
+      <div class="rl-panel-header">
+        <h2><i class="pi pi-align-justify" aria-hidden="true"></i> Timeline</h2>
+      </div>
+      <div class="rl-panel-body timeline-body">
+        <rl-run-header [store]="store" (reconnect)="session.reconnect()" />
+        <rl-timeline [events]="store.events()" [live]="running()" [experimentId]="store.id()" height="calc(100vh - 360px)" />
+      </div>
+    </section>
+  </ng-template>
+
+  <ng-template #stateTpl>
+    @if (store.isStepMode() && running()) {
+      <section class="rl-panel">
+        <div class="rl-panel-header"><h2><i class="pi pi-step-forward" aria-hidden="true"></i> Step-by-step</h2></div>
+        <div class="rl-panel-body">
+          <rl-step-panel [state]="store.stepState()" [busy]="session.busy() === 'step' || session.busy() === 'resume'" (release)="nextStep($event)" (resume)="resume()" />
+        </div>
+      </section>
+    }
+    <section class="rl-panel fill">
+      <div class="rl-panel-header"><h2><i class="pi pi-table" aria-hidden="true"></i> Resource state</h2></div>
+      <div class="rl-panel-body scroll" data-testid="resource-state">
+        <rl-resource-state [result]="store.result()" [loading]="store.resultLoading()" [running]="running()" />
+      </div>
+    </section>
+  </ng-template>
+
+  @if (wide()) {
+    <p-splitter
+      [panelSizes]="[23, 49, 28]"
+      [minSizes]="[15, 30, 18]"
+      stateKey="racelab.lab.splitter"
+      stateStorage="local"
+      styleClass="lab-splitter"
+    >
+      <ng-template #panel>
+        <div class="split-col"><ng-container [ngTemplateOutlet]="catalogTpl" /></div>
+      </ng-template>
+      <ng-template #panel>
+        <div class="split-col"><ng-container [ngTemplateOutlet]="timelineTpl" /></div>
+      </ng-template>
+      <ng-template #panel>
+        <div class="split-col"><ng-container [ngTemplateOutlet]="stateTpl" /></div>
+      </ng-template>
+    </p-splitter>
+  } @else {
+    <div class="stack-layout">
+      <ng-container [ngTemplateOutlet]="catalogTpl" />
+      <ng-container [ngTemplateOutlet]="timelineTpl" />
+      <ng-container [ngTemplateOutlet]="stateTpl" />
+    </div>
+  }
+
+  <section class="rl-panel">
+    <div class="rl-panel-body">
+      <rl-result-tabs
+        [result]="store.result()"
+        [events]="store.events()"
+        [scenarioId]="selectedPreset()?.scenarioId ?? null"
+        [strategy]="strategy()"
+        [loading]="store.resultLoading()"
+        [running]="running()"
+      />
+    </div>
+  </section>
+</div>

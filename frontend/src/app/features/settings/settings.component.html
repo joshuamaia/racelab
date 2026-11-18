@@ -1,0 +1,93 @@
+<div class="page">
+  <div class="page-header">
+    <div>
+      <h1>Settings</h1>
+      <p class="subtitle">Preferences are stored only in this browser (localStorage). Nothing here changes the backend.</p>
+    </div>
+    <div class="actions">
+      <p-button label="Clear local preferences" icon="pi pi-trash" severity="danger" [outlined]="true" size="small" (onClick)="reset()" />
+    </div>
+  </div>
+
+  <div class="grid grid-2">
+    <section class="rl-panel">
+      <div class="rl-panel-header"><h2><i class="pi pi-palette" aria-hidden="true"></i>Appearance</h2></div>
+      <div class="rl-panel-body">
+        <div class="setting">
+          <label id="theme-label">Theme</label>
+          <p-selectbutton
+            [options]="themeOptions"
+            optionLabel="label"
+            optionValue="value"
+            [allowEmpty]="false"
+            [ngModel]="prefs.theme()"
+            (ngModelChange)="set('theme', $event)"
+            ariaLabelledBy="theme-label"
+          />
+        </div>
+        <div class="setting">
+          <label for="sidebar-collapsed">Collapse sidebar by default</label>
+          <p-toggleswitch inputId="sidebar-collapsed" [ngModel]="prefs.sidebarCollapsed()" (ngModelChange)="set('sidebarCollapsed', $event)" />
+          <span class="hint muted small">Collapsed shows icons only; the state is remembered.</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="rl-panel">
+      <div class="rl-panel-header"><h2><i class="pi pi-wifi" aria-hidden="true"></i>Real time &amp; timeline</h2></div>
+      <div class="rl-panel-body">
+        <div class="setting">
+          <label for="sse-delay">SSE reconnection delay</label>
+          <p-inputnumber
+            inputId="sse-delay"
+            [ngModel]="prefs.sseReconnectDelayMs()"
+            (ngModelChange)="setReconnectDelay($event)"
+            [min]="250"
+            [max]="10000"
+            [step]="250"
+            [showButtons]="true"
+            suffix=" ms"
+            [useGrouping]="false"
+          />
+          <span class="hint muted small">Base delay before reconnecting the event stream (exponential backoff, resumes with lastEventId).</span>
+        </div>
+        <div class="setting">
+          <label for="tl-zoom">Timeline default zoom</label>
+          <p-select inputId="tl-zoom" [options]="zoomOptions" [ngModel]="prefs.timelineZoom()" (ngModelChange)="set('timelineZoom', $event)" />
+          <span class="hint muted small">Vertical spacing proportional to the elapsed time between events.</span>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <section class="rl-panel">
+    <div class="rl-panel-header"><h2><i class="pi pi-sliders-v" aria-hidden="true"></i>Default experiment limits</h2></div>
+    <div class="rl-panel-body">
+      <div class="callout tone-info small">
+        <i class="pi pi-info-circle" aria-hidden="true"></i>
+        <span>Client-side defaults applied on top of the scenario defaults when a lab opens. Leave empty to keep the scenario value. The backend still validates every limit.</span>
+      </div>
+      <div class="grid grid-3">
+        @for (f of limitFields; track f.key) {
+          <div class="setting">
+            <label [for]="'def-' + f.key">{{ f.label }} <span class="subtle small num">({{ f.min }}..{{ f.max }})</span></label>
+            <p-inputnumber
+              [inputId]="'def-' + f.key"
+              [ngModel]="defaultValue(f.key)"
+              (ngModelChange)="setDefault(f, $event)"
+              [min]="f.min"
+              [max]="f.max"
+              [suffix]="f.suffix ?? ''"
+              [useGrouping]="false"
+              placeholder="scenario default"
+            />
+          </div>
+        }
+      </div>
+      <div class="row">
+        <p-button label="Save defaults" icon="pi pi-check" size="small" (onClick)="saveDefaults()" />
+        <p-button label="Clear defaults" icon="pi pi-times" size="small" severity="secondary" [outlined]="true" (onClick)="clearDefaults()" />
+      </div>
+    </div>
+  </section>
+</div>

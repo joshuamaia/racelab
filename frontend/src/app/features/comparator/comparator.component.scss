@@ -1,0 +1,78 @@
+.cmp-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr);
+  gap: 1rem;
+  align-items: start;
+  @media (max-width: 1000px) {
+    grid-template-columns: 1fr;
+  }
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+  > span {
+    font-size: 0.78rem;
+    color: var(--rl-muted);
+  }
+}
+.cmp-two {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+.cmp-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 0.75rem;
+}
+.sub {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--rl-muted);
+}
+.err {
+  color: var(--rl-red);
+}
+.prev-list {
+  max-height: 560px;
+  overflow: auto;
+}
+.prev-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--rl-border);
+  padding: 0.6rem 0.85rem;
+  color: var(--rl-text);
+  cursor: pointer;
+  font: inherit;
+  &:hover {
+    background: var(--rl-grey-bg);
+  }
+  &.active {
+    background: var(--rl-blue-bg);
+    box-shadow: inset 3px 0 0 var(--rl-blue);
+  }
+}
+td.final {
+  max-width: 24rem;
+  white-space: normal;
+}
+:host ::ng-deep .w-full {
+  width: 100%;
+}
+:host ::ng-deep .p-inputnumber {
+  width: 100%;
+}
+:host ::ng-deep .p-inputnumber input {
+  width: 100%;
+  min-width: 0;
+}

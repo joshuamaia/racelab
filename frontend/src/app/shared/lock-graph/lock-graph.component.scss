@@ -1,0 +1,96 @@
+:host {
+  display: block;
+}
+.lg-head {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.4rem;
+}
+.lg-desc {
+  margin: 0.2rem 0 0.5rem;
+}
+.lg-canvas {
+  overflow: auto;
+  background: var(--rl-panel-2);
+  border: 1px solid var(--rl-border);
+  border-radius: var(--rl-radius-sm);
+  max-height: 560px;
+  svg {
+    display: block;
+    margin: 0 auto;
+    max-width: 100%;
+    height: auto;
+  }
+}
+.lg-arrow {
+  fill: var(--rl-muted);
+}
+.lg-edge path {
+  fill: none;
+  stroke: var(--rl-muted);
+  stroke-width: 1.6;
+}
+.lg-node {
+  ellipse,
+  rect {
+    stroke-width: 2;
+  }
+  text {
+    font-family: var(--rl-font-mono);
+    font-size: 11.5px;
+    fill: var(--rl-text);
+  }
+  &.tx ellipse {
+    fill: var(--rl-blue-bg);
+    stroke: var(--rl-blue);
+  }
+  &.lock rect {
+    fill: var(--rl-yellow-bg);
+    stroke: var(--rl-yellow);
+  }
+  &.victim ellipse,
+  &.victim rect {
+    fill: var(--rl-red-bg);
+    stroke: var(--rl-red);
+    stroke-dasharray: 6 3;
+  }
+}
+.lg-victim-badge {
+  circle {
+    fill: var(--rl-red);
+  }
+  text {
+    fill: #fff !important;
+    font-weight: 700;
+    font-size: 13px !important;
+  }
+}
+.lg-victim-label {
+  fill: var(--rl-red) !important;
+  font-weight: 600;
+}
+.lg-edge-label {
+  circle {
+    fill: var(--rl-panel);
+    stroke: var(--rl-orange);
+    stroke-width: 1.5;
+  }
+  text {
+    font-family: var(--rl-font-mono);
+    font-size: 11px;
+    font-weight: 700;
+    fill: var(--rl-orange);
+  }
+}
+.lg-legend {
+  margin: 0.6rem 0 0;
+  padding-left: 1.4rem;
+  font-size: 0.82rem;
+  li {
+    margin-bottom: 0.2rem;
+    span {
+      margin-right: 0.35rem;
+    }
+  }
+}

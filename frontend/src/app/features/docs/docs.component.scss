@@ -1,0 +1,133 @@
+.docs-layout {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 1.25rem;
+  align-items: start;
+  @media (max-width: 900px) {
+    grid-template-columns: 1fr;
+  }
+}
+.toc {
+  position: sticky;
+  top: 0.5rem;
+  ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  ul ul {
+    padding-left: 0.8rem;
+  }
+  button {
+    background: none;
+    border: none;
+    color: var(--rl-muted);
+    cursor: pointer;
+    text-align: left;
+    padding: 0.22rem 0.4rem;
+    border-radius: 4px;
+    width: 100%;
+    font: inherit;
+    font-size: 0.84rem;
+    &:hover,
+    &.active {
+      color: var(--rl-blue);
+      background: var(--rl-blue-bg);
+    }
+  }
+  @media (max-width: 900px) {
+    position: static;
+  }
+}
+.doc {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  section {
+    scroll-margin-top: 1rem;
+  }
+  h2 {
+    margin-bottom: 0.5rem;
+  }
+  h3 {
+    margin: 0.8rem 0 0.35rem;
+    scroll-margin-top: 1rem;
+  }
+  p,
+  li {
+    line-height: 1.6;
+    max-width: 90ch;
+  }
+}
+.matrix {
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  margin: 0.5rem 0;
+  th,
+  td {
+    border: 1px solid var(--rl-border);
+    padding: 0.3rem 0.55rem;
+    text-align: left;
+  }
+  th {
+    background: var(--rl-panel-2);
+  }
+}
+.arch {
+  overflow-x: auto;
+  svg {
+    display: block;
+    min-width: 760px;
+    max-width: 100%;
+    height: auto;
+  }
+  rect {
+    fill: var(--rl-panel-2);
+    stroke: var(--rl-border);
+    stroke-width: 1.5;
+  }
+  rect.accent {
+    stroke: var(--rl-blue);
+  }
+  rect.data {
+    stroke: var(--rl-cyan);
+  }
+  text {
+    fill: var(--rl-text);
+    font-family: var(--rl-font-mono);
+    font-size: 12px;
+  }
+  text.sub {
+    fill: var(--rl-muted);
+    font-size: 10.5px;
+  }
+  .flow {
+    stroke: var(--rl-muted);
+    stroke-width: 1.5;
+    fill: none;
+  }
+  .sse {
+    stroke: var(--rl-green);
+    stroke-width: 1.5;
+    stroke-dasharray: 5 4;
+    fill: none;
+  }
+  .arrow {
+    fill: var(--rl-muted);
+  }
+  .arrow-sse {
+    fill: var(--rl-green);
+  }
+  text.sse-label {
+    fill: var(--rl-green);
+    font-size: 10.5px;
+  }
+}
+.demo {
+  border-left: 3px solid var(--rl-blue);
+  padding: 0.3rem 0 0.3rem 0.8rem;
+  margin-bottom: 0.8rem;
+  dl {
+    margin: 0.3rem 0;
+  }
+}

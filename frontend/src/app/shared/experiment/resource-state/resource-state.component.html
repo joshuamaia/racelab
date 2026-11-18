@@ -1,0 +1,122 @@
+@if (result(); as r) {
+  <div class="stack">
+    <div class="row">
+      <rl-consistency-tag [consistent]="r.consistent" />
+      <span class="pill tone-commit num"><i class="pi pi-check" aria-hidden="true"></i>{{ summary().ok }} OK</span>
+      @if (summary().invalid) {
+        <span class="pill tone-rollback num"><i class="pi pi-times" aria-hidden="true"></i>{{ summary().invalid }} INVÁLIDA</span>
+      }
+    </div>
+    @if (r.summary) {
+      <div [class]="'callout ' + (r.consistent ? 'tone-commit' : 'tone-conflict')">
+        <i [class]="r.consistent ? 'pi pi-shield' : 'pi pi-exclamation-triangle'" aria-hidden="true"></i>
+        <span>{{ r.summary }}</span>
+      </div>
+    }
+
+    <p-table [value]="rows()" dataKey="key" size="small" styleClass="table-mono" [tableStyle]="{ 'min-width': '28rem' }">
+      <ng-template #header>
+        <tr>
+          <th scope="col">Resource</th>
+          <th scope="col">Initial</th>
+          <th scope="col">Current</th>
+          <th scope="col">Expected</th>
+          <th scope="col">Status</th>
+        </tr>
+      </ng-template>
+      <ng-template #body let-row>
+        <tr>
+          <td>
+            <div>{{ row.label }}</div>
+            <div class="subtle small num">{{ row.attribute }}</div>
+          </td>
+          <td class="mono">{{ row.initial }}</td>
+          <td class="mono" [class.bad]="!row.ok">{{ row.current }}</td>
+          <td class="mono">{{ row.expected }}</td>
+          <td>
+            @if (row.ok) {
+              <span class="pill tone-commit"><i class="pi pi-check" aria-hidden="true"></i>OK</span>
+            } @else {
+              <span class="pill tone-rollback" data-testid="state-invalid"><i class="pi pi-times" aria-hidden="true"></i>INVÁLIDA</span>
+            }
+          </td>
+        </tr>
+      </ng-template>
+      <ng-template #emptymessage>
+        <tr><td colspan="5" class="muted">No state rows reported.</td></tr>
+      </ng-template>
+    </p-table>
+
+    @if (showTransactions()) {
+      <h3 class="section-title">Transactions</h3>
+      <p-table
+        [value]="transactions()"
+        dataKey="transactionId"
+        size="small"
+        styleClass="table-mono"
+        [scrollable]="true"
+        scrollHeight="320px"
+        [tableStyle]="{ 'min-width': '52rem' }"
+      >
+        <ng-template #header>
+          <tr>
+            <th scope="col">Worker / tx</th>
+            <th scope="col">Status</th>
+            <th scope="col">Attempts</th>
+            <th scope="col">Latency</th>
+            <th scope="col">Lock wait</th>
+            <th scope="col">SQLSTATE</th>
+            <th scope="col">Message</th>
+            <th scope="col">Before → After</th>
+          </tr>
+        </ng-template>
+        <ng-template #body let-t>
+          <tr>
+            <td class="mono">
+              <div>{{ t.workerId }}</div>
+              <div class="subtle small">{{ t.transactionId }}{{ t.instanceId ? ' · ' + t.instanceId : '' }}</div>
+            </td>
+            <td>
+              <rl-status-tag [status]="t.status" />
+              @if (t.expectedFailure) {
+                <div class="subtle small" pTooltip="This failure is the expected, safe outcome of the strategy">expected</div>
+              }
+            </td>
+            <td class="mono">{{ t.attempts }}</td>
+            <td class="mono">{{ t.latencyMs }} ms</td>
+            <td class="mono">{{ t.lockWaitMs }} ms</td>
+            <td class="mono">
+              @if (t.sqlState) {
+                <span class="pill tone-conflict" [pTooltip]="t.errorType ?? ''">{{ t.sqlState }}</span>
+              } @else if (t.errorType) {
+                <span class="pill tone-neutral">{{ t.errorType }}</span>
+              } @else {
+                —
+              }
+            </td>
+            <td class="msg-cell">
+              {{ t.friendlyMessage ?? t.message ?? '—' }}
+              @if (t.friendlyMessage && t.message) {
+                <div class="subtle small mono">{{ t.message }}</div>
+              }
+            </td>
+            <td class="mono small">{{ compact(t.before) }} → {{ compact(t.after) }}</td>
+          </tr>
+        </ng-template>
+        <ng-template #emptymessage>
+          <tr><td colspan="8" class="muted">No transactions reported.</td></tr>
+        </ng-template>
+      </p-table>
+    }
+  </div>
+} @else if (loading()) {
+  <div class="stack">
+    <p-skeleton height="1.5rem" width="40%" />
+    <p-skeleton height="6rem" />
+    <p-skeleton height="6rem" />
+  </div>
+} @else if (running()) {
+  <rl-empty-state icon="pi pi-spin pi-spinner" title="Experiment running" message="The final state is evaluated by the backend when every transaction finishes." />
+} @else {
+  <rl-empty-state icon="pi pi-table" title="No result yet" message="Run an experiment to compare the initial, current and expected state." />
+}

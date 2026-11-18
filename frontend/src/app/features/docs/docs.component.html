@@ -1,0 +1,276 @@
+<div class="page">
+  <div class="page-header">
+    <div>
+      <h1>Documentation</h1>
+      <p class="subtitle">Concepts behind every lab, how to read what you see, and what RaceLab can and cannot tell you.</p>
+    </div>
+  </div>
+
+  <div class="docs-layout">
+    <nav class="toc rl-panel" aria-label="Table of contents">
+      <div class="rl-panel-body">
+        <ul>
+          @for (e of toc; track e.id) {
+            <li>
+              <button type="button" [class.active]="active() === e.id" (click)="go(e.id)">{{ e.label }}</button>
+              @if (e.children) {
+                <ul>
+                  @for (c of e.children; track c.id) {
+                    <li><button type="button" [class.active]="active() === c.id" (click)="go(c.id)">{{ c.label }}</button></li>
+                  }
+                </ul>
+              }
+            </li>
+          }
+        </ul>
+      </div>
+    </nav>
+
+    <article class="doc">
+      <!-- ============================== CONCEPTS ============================== -->
+      <section id="concepts" class="rl-panel">
+        <div class="rl-panel-body">
+          <h2>Concepts</h2>
+
+          <h3 id="race-condition">Race condition</h3>
+          <p>
+            A race condition happens when the result of an operation depends on the relative timing of concurrent executions.
+            The classic shape is <strong>read → decide → write</strong>: two transactions read the same value, both decide based on
+            what they read, and both write — the second write is computed from stale data. Races are timing-dependent, which is why
+            RaceLab uses coordinated starts, artificial delays and step-by-step checkpoints to make them reproducible.
+          </p>
+
+          <h3 id="lost-update">Lost update</h3>
+          <p>
+            Two withdrawals of 800.00 read a balance of 1000.00, each computes 200.00 and writes it. Both are confirmed, yet the balance
+            only decreased once: one update was lost. Under PostgreSQL <code>READ COMMITTED</code> a plain
+            <code>SELECT</code> followed by <code>UPDATE … SET balance = :computed</code> allows this. Fixes: an atomic conditional
+            update, optimistic locking (version column), pessimistic locking (<code>SELECT … FOR UPDATE</code>) or
+            <code>SERIALIZABLE</code> with retries.
+          </p>
+
+          <h3 id="deadlock">Deadlock</h3>
+          <p>
+            Transaction A locks row 1 and waits for row 2 while transaction B locks row 2 and waits for row 1. Neither can proceed.
+            PostgreSQL runs its deadlock detector after <code>deadlock_timeout</code> (1 s by default), aborts one victim with
+            SQLSTATE <code>40P01</code> and lets the other continue. The Lock graph tab draws the wait-for cycle and marks the victim.
+            Prevention: acquire locks in a consistent global order (lock ordering), keep transactions short, and retry victims.
+          </p>
+
+          <h3 id="write-skew">Write skew</h3>
+          <p>
+            Two transactions read an overlapping set of rows, check an invariant (for example, "at least one doctor on call"),
+            and each updates a <em>different</em> row. Neither write conflicts with the other, so snapshot isolation lets both commit
+            and the invariant breaks. PostgreSQL <code>REPEATABLE READ</code> allows write skew; <code>SERIALIZABLE</code> detects the
+            dangerous dependency and aborts one transaction with SQLSTATE <code>40001</code>.
+          </p>
+
+          <h3 id="isolation-levels">Isolation levels</h3>
+          <p>The SQL standard defines levels by the anomalies they forbid. PostgreSQL is stricter in practice:</p>
+          <table class="matrix">
+            <thead>
+              <tr>
+                <th scope="col">Level</th>
+                <th scope="col">Dirty read</th>
+                <th scope="col">Non-repeatable read</th>
+                <th scope="col">Phantom read</th>
+                <th scope="col">Write skew</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><th scope="row">Read Uncommitted</th><td>Not possible (behaves as Read Committed)</td><td>Possible</td><td>Possible</td><td>Possible</td></tr>
+              <tr><th scope="row">Read Committed</th><td>Not possible</td><td>Possible</td><td>Possible</td><td>Possible</td></tr>
+              <tr><th scope="row">Repeatable Read</th><td>Not possible</td><td>Not possible</td><td>Not possible (snapshot)</td><td>Possible</td></tr>
+              <tr><th scope="row">Serializable</th><td>Not possible</td><td>Not possible</td><td>Not possible</td><td>Not possible (SSI aborts with 40001)</td></tr>
+            </tbody>
+          </table>
+          <ul class="rl-list">
+            <li><strong>Read Uncommitted</strong> is accepted but treated as Read Committed: PostgreSQL never exposes uncommitted data.</li>
+            <li><strong>Read Committed</strong> (default) takes a new snapshot per statement.</li>
+            <li><strong>Repeatable Read</strong> is snapshot isolation: one snapshot per transaction, so phantoms are not visible; concurrent updates to the same row fail with <code>40001</code>.</li>
+            <li><strong>Serializable</strong> uses Serializable Snapshot Isolation (SSI): it tracks read/write dependencies and aborts one transaction with <code>40001</code>. Clients must retry.</li>
+          </ul>
+
+          <h3 id="optimistic-pessimistic">Optimistic vs pessimistic locking</h3>
+          <p>
+            <strong>Optimistic</strong> locking reads without locks and validates at write time with a version column
+            (<code>UPDATE … WHERE id = ? AND version = ?</code>). Zero rows updated means a conflict: the transaction is rejected or retried.
+            It shines with low contention and fails fast under high contention.
+            <strong>Pessimistic</strong> locking takes the row lock up front (<code>SELECT … FOR UPDATE</code>), so competitors queue.
+            It guarantees progress for the lock holder but adds lock waits, can deadlock when lock order differs, and holds locks during
+            any slow work inside the transaction.
+          </p>
+
+          <h3 id="atomic-update">Atomic conditional update</h3>
+          <p>
+            Move the decision into a single statement: <code>UPDATE account SET balance = balance - :amount WHERE id = :id AND balance &gt;= :amount</code>.
+            The database evaluates the condition and the write under the same row lock, so there is no stale read. Check the affected row
+            count to know whether the business rule rejected the operation. The "unguarded" variant (without the <code>WHERE balance &gt;= …</code>)
+            avoids lost updates but can still break the "balance ≥ 0" invariant.
+          </p>
+
+          <h3 id="advisory-locks">Advisory locks</h3>
+          <p>
+            PostgreSQL advisory locks (<code>pg_advisory_xact_lock(key)</code>) are application-defined mutexes managed by the database.
+            They coordinate work that does not map to a single row (for example, "only one job per customer") across every application
+            instance sharing the database. Transaction-scoped variants release automatically at commit/rollback.
+          </p>
+
+          <h3 id="redis-locks">Redis locks and fencing tokens</h3>
+          <p>
+            A Redis lock (<code>SET key value NX PX ttl</code>) coordinates instances that do not share a transaction. Its weakness is the TTL:
+            a client paused longer than the TTL (GC, network) still believes it holds the lock while another client acquires it.
+            A <strong>fencing token</strong> — a monotonically increasing number issued with each lock — lets the storage reject writes
+            carrying an older token, so a stale lock holder cannot corrupt data.
+          </p>
+
+          <h3 id="idempotency">Idempotency keys</h3>
+          <p>
+            Retries and double clicks deliver the same request twice. Storing a client-supplied idempotency key with a
+            <code>UNIQUE</code> constraint (in the same transaction as the effect) makes the second attempt fail with
+            <code>23505</code> or return the stored result, so the effect happens exactly once.
+          </p>
+
+          <h3 id="outbox">Transactional outbox</h3>
+          <p>
+            Writing to the database and publishing a message are two systems: a crash between them loses or duplicates the message.
+            The outbox pattern writes the message to an <code>outbox</code> table in the same transaction as the business change;
+            a relay publishes it afterwards and marks it as sent. Delivery becomes at-least-once, so consumers must be idempotent —
+            the "naive consumer" strategy shows what happens when they are not.
+          </p>
+        </div>
+      </section>
+
+      <!-- ============================== READING ============================== -->
+      <section id="reading" class="rl-panel">
+        <div class="rl-panel-body">
+          <h2>Reading the timeline</h2>
+          <ul class="rl-list">
+            <li>Each column is a worker (one transaction at a time); the first column holds experiment-level events.</li>
+            <li>Rows are ordered by elapsed time since the experiment started; the gutter shows the elapsed milliseconds and the gap since the previous event. Zoom changes how many pixels a millisecond takes.</li>
+            <li>Every card has an icon and a text label: <span class="pill tone-read">read</span> <span class="pill tone-write">write</span> <span class="pill tone-wait">wait / lock request / checkpoint</span> <span class="pill tone-conflict">conflict / deadlock / inconsistency</span> <span class="pill tone-commit">commit</span> <span class="pill tone-rollback">rollback</span>.</li>
+            <li>Cards marked <span class="pill tone-info"><i class="pi pi-database" aria-hidden="true"></i>observed in DB</span> come from PostgreSQL itself (<code>pg_blocking_pids</code>, <code>pg_stat_activity</code>, SQLSTATE). The others are instrumented by the application code.</li>
+            <li>The yellow bar to the left of a column means the worker holds a lock; the dashed bar means it is waiting for one.</li>
+            <li>The state table compares initial, current and expected values. <span class="pill tone-rollback">INVÁLIDA</span> means a business invariant was violated.</li>
+          </ul>
+          <h3>Step-by-step mode</h3>
+          <p>
+            Workers pause at named checkpoints (before read, after read, before write, before commit…). "Next step" releases the
+            suggested worker; "Release" releases a specific one; "Resume" leaves step mode. A worker blocked on a database lock cannot
+            reach its next checkpoint until the lock is released — that is the database speaking, not the UI. Checkpoints are released
+            automatically when the step timeout expires.
+          </p>
+        </div>
+      </section>
+
+      <!-- ============================== DEMOS ============================== -->
+      <section id="demos" class="rl-panel">
+        <div class="rl-panel-body">
+          <h2>Demo walkthroughs</h2>
+          <p class="muted">Each demo is a preset served by the backend catalog. Open it in its lab, run it, then switch the strategy and run again.</p>
+          @for (p of catalog.demos(); track p.id) {
+            <div class="demo">
+              <h3>Demo {{ p.demo }} — {{ p.name }}</h3>
+              <dl class="kv">
+                <dt>Problem</dt>
+                <dd>{{ p.problem }}</dd>
+                <dt>Scenario</dt>
+                <dd>{{ p.businessScenario }}</dd>
+                <dt>Expected</dt>
+                <dd>{{ p.expectedResult }}</dd>
+              </dl>
+              @if (p.explanation) {
+                <p>{{ p.explanation }}</p>
+              }
+              <a [routerLink]="labLink(p)" [queryParams]="{ preset: p.id }"><i class="pi pi-external-link" aria-hidden="true"></i> Open in lab</a>
+            </div>
+          } @empty {
+            <p class="muted">
+              {{ catalog.failed() ? 'The demo catalog could not be loaded from the API.' : 'Loading demos from the catalog…' }}
+            </p>
+          }
+        </div>
+      </section>
+
+      <!-- ============================== ARCHITECTURE ============================== -->
+      <section id="architecture" class="rl-panel">
+        <div class="rl-panel-body">
+          <h2>Architecture</h2>
+          <div class="arch">
+            <svg viewBox="0 0 900 300" role="img" aria-label="Architecture: browser running Angular talks to Nginx, which serves the SPA and proxies /api to the NestJS BFF; the BFF forwards to one or two Spring Boot backends that use PostgreSQL and Redis; events stream back over Server-Sent Events.">
+              <defs>
+                <marker id="docs-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M0 0 L10 5 L0 10z" class="arrow" />
+                </marker>
+                <marker id="docs-arrow-sse" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M0 0 L10 5 L0 10z" class="arrow-sse" />
+                </marker>
+              </defs>
+              <rect x="10" y="100" width="140" height="70" rx="8" class="accent" />
+              <text x="80" y="130" text-anchor="middle">Browser</text>
+              <text x="80" y="148" text-anchor="middle" class="sub">Angular 21 SPA</text>
+
+              <rect x="200" y="100" width="140" height="70" rx="8" />
+              <text x="270" y="130" text-anchor="middle">Nginx</text>
+              <text x="270" y="148" text-anchor="middle" class="sub">static + /api proxy</text>
+
+              <rect x="390" y="100" width="150" height="70" rx="8" />
+              <text x="465" y="130" text-anchor="middle">NestJS BFF</text>
+              <text x="465" y="148" text-anchor="middle" class="sub">routing, correlation id</text>
+
+              <rect x="590" y="40" width="150" height="70" rx="8" class="accent" />
+              <text x="665" y="70" text-anchor="middle">Spring Boot</text>
+              <text x="665" y="88" text-anchor="middle" class="sub">primary instance</text>
+
+              <rect x="590" y="160" width="150" height="70" rx="8" class="accent" />
+              <text x="665" y="190" text-anchor="middle">Spring Boot</text>
+              <text x="665" y="208" text-anchor="middle" class="sub">secondary (distributed)</text>
+
+              <rect x="780" y="60" width="110" height="60" rx="8" class="data" />
+              <text x="835" y="88" text-anchor="middle">PostgreSQL</text>
+              <text x="835" y="104" text-anchor="middle" class="sub">data + events</text>
+
+              <rect x="780" y="170" width="110" height="60" rx="8" class="data" />
+              <text x="835" y="198" text-anchor="middle">Redis</text>
+              <text x="835" y="214" text-anchor="middle" class="sub">distributed locks</text>
+
+              <path d="M150 125 L198 125" class="flow" marker-end="url(#docs-arrow)" />
+              <path d="M340 125 L388 125" class="flow" marker-end="url(#docs-arrow)" />
+              <path d="M540 120 L588 80" class="flow" marker-end="url(#docs-arrow)" />
+              <path d="M540 150 L588 190" class="flow" marker-end="url(#docs-arrow)" />
+              <path d="M740 75 L778 85" class="flow" marker-end="url(#docs-arrow)" />
+              <path d="M740 195 L778 105" class="flow" marker-end="url(#docs-arrow)" />
+              <path d="M740 95 L778 190" class="flow" marker-end="url(#docs-arrow)" />
+              <path d="M740 210 L778 205" class="flow" marker-end="url(#docs-arrow)" />
+
+              <path d="M590 60 C 420 0, 200 10, 80 98" class="sse" marker-end="url(#docs-arrow-sse)" />
+              <text x="330" y="30" text-anchor="middle" class="sse-label">SSE: experiment-event / heartbeat / end (Last-Event-ID replay)</text>
+              <text x="450" y="285" text-anchor="middle" class="sub">REST: /api/** — same paths and payloads end to end (docs/API-CONTRACT.md)</text>
+            </svg>
+          </div>
+          <ul class="rl-list">
+            <li>The browser only calls same-origin <code>/api/**</code>; Nginx proxies to the BFF with buffering disabled for the event stream.</li>
+            <li>The BFF forwards requests unchanged, adds <code>X-Correlation-Id</code> and routes to an instance via <code>X-RaceLab-Instance</code>.</li>
+            <li>Each experiment runs on isolated, namespaced data, so concurrent experiments do not interfere with each other.</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- ============================== LIMITATIONS ============================== -->
+      <section id="limitations" class="rl-panel">
+        <div class="rl-panel-body">
+          <h2>Limitations</h2>
+          <ul class="rl-list">
+            <li><strong>Point-in-time inspector.</strong> The Transaction Inspector polls <code>pg_stat_activity</code> and <code>pg_locks</code>; states shorter than the polling interval are not captured.</li>
+            <li><strong>Artificial delays.</strong> Delays widen race windows so anomalies are reproducible; real systems hit them less often, but they still happen.</li>
+            <li><strong>Local hardware.</strong> Timings depend on the machine, Docker resources and PostgreSQL configuration.</li>
+            <li><strong>No universal benchmark.</strong> Comparator results describe this scenario under this load; they do not declare a universally best strategy.</li>
+            <li><strong>Step mode timeouts.</strong> Paused checkpoints are released automatically after the step timeout to avoid holding database locks forever.</li>
+            <li><strong>Concurrency cap.</strong> At most 3 experiments run concurrently per backend instance (HTTP 409 <code>TOO_MANY_EXPERIMENTS</code>); limits on threads, transactions and delays are enforced by the backend.</li>
+            <li><strong>Reconstructed graphs.</strong> When PostgreSQL does not report a lock graph, it is reconstructed from application events and labelled as such.</li>
+          </ul>
+        </div>
+      </section>
+    </article>
+  </div>
+</div>

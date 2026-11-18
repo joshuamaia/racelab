@@ -1,0 +1,228 @@
+.app-shell {
+  display: grid;
+  grid-template-rows: var(--rl-topbar-h) 1fr;
+  grid-template-columns: var(--rl-sidebar-w) 1fr;
+  grid-template-areas:
+    'top top'
+    'side main';
+  height: 100vh;
+  transition: grid-template-columns 0.18s ease;
+
+  &.collapsed {
+    grid-template-columns: var(--rl-sidebar-w-collapsed) 1fr;
+  }
+}
+
+.app-topbar {
+  grid-area: top;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0 1rem 0 0.5rem;
+  background: var(--rl-panel);
+  border-bottom: 1px solid var(--rl-border);
+  z-index: 5;
+  min-width: 0;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--rl-text);
+  min-width: 0;
+  &:hover {
+    text-decoration: none;
+  }
+  .brand-name {
+    font-family: var(--rl-font-mono);
+    font-weight: 600;
+    font-size: 1.05rem;
+    letter-spacing: 0.02em;
+    span {
+      color: var(--rl-cyan);
+    }
+  }
+  .brand-slogan {
+    color: var(--rl-muted);
+    font-size: 0.78rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+.topbar-spacer {
+  flex: 1;
+}
+
+.app-sidebar {
+  grid-area: side;
+  background: var(--rl-panel);
+  border-right: 1px solid var(--rl-border);
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0.6rem 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nav-section {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--rl-subtle);
+  padding: 0.75rem 0.6rem 0.3rem;
+  white-space: nowrap;
+}
+
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.5rem 0.65rem;
+  border-radius: var(--rl-radius-sm);
+  color: var(--rl-muted);
+  white-space: nowrap;
+  font-weight: 500;
+  i {
+    font-size: 1rem;
+    width: 1.2rem;
+    text-align: center;
+    flex: none;
+  }
+  &:hover {
+    background: var(--rl-grey-bg);
+    color: var(--rl-text);
+    text-decoration: none;
+  }
+  &.active {
+    background: var(--rl-blue-bg);
+    color: var(--rl-blue);
+    box-shadow: inset 3px 0 0 var(--rl-blue);
+  }
+}
+
+.collapsed .app-sidebar {
+  .nav-label,
+  .nav-section {
+    display: none;
+  }
+  .nav-link {
+    justify-content: center;
+  }
+}
+
+.app-main {
+  grid-area: main;
+  overflow: auto;
+  min-width: 0;
+}
+
+.page {
+  padding: 1.1rem 1.25rem 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  .subtitle {
+    color: var(--rl-muted);
+    margin-top: 0.2rem;
+    max-width: 80ch;
+  }
+  .actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+}
+
+.grid {
+  display: grid;
+  gap: 0.9rem;
+}
+.grid-kpi {
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+}
+.grid-2 {
+  grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr));
+}
+.grid-3 {
+  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
+}
+.grid-4 {
+  grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr));
+}
+
+.row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.grow {
+  flex: 1;
+  min-width: 0;
+}
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.sidebar-backdrop {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .app-shell,
+  .app-shell.collapsed {
+    grid-template-columns: 0 1fr;
+  }
+  .app-sidebar {
+    position: fixed;
+    top: var(--rl-topbar-h);
+    bottom: 0;
+    left: 0;
+    width: var(--rl-sidebar-w);
+    z-index: 20;
+    transform: translateX(-100%);
+    transition: transform 0.18s ease;
+  }
+  .app-shell.mobile-open .app-sidebar {
+    transform: none;
+  }
+  .app-shell.mobile-open .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: var(--rl-topbar-h) 0 0 0;
+    background: rgb(0 0 0 / 40%);
+    z-index: 15;
+  }
+  .collapsed .app-sidebar {
+    .nav-label,
+    .nav-section {
+      display: initial;
+    }
+    .nav-link {
+      justify-content: flex-start;
+    }
+  }
+  .brand .brand-slogan,
+  .hide-mobile {
+    display: none !important;
+  }
+  .page {
+    padding: 0.8rem 0.75rem 1.5rem;
+  }
+}

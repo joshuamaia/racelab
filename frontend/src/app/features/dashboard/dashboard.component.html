@@ -1,0 +1,171 @@
+<div class="page">
+  <div class="page-header">
+    <div>
+      <h1>Dashboard</h1>
+      <p class="subtitle">Aggregated from experiments persisted by the backend. Every number comes from a real run.</p>
+    </div>
+    <div class="actions">
+      <p-button label="Refresh" icon="pi pi-refresh" [outlined]="true" size="small" (onClick)="load()" [loading]="loading()" />
+    </div>
+  </div>
+
+  @if (loading() && !data()) {
+    <div class="grid grid-kpi">
+      @for (i of [1, 2, 3, 4, 5, 6, 7, 8, 9]; track i) {
+        <p-skeleton height="5.2rem" />
+      }
+    </div>
+    <div class="grid grid-2">
+      <p-skeleton height="18rem" />
+      <p-skeleton height="18rem" />
+    </div>
+  } @else if (failed()) {
+    <div class="rl-panel">
+      <rl-empty-state icon="pi pi-exclamation-circle" title="Dashboard unavailable" message="The API did not answer. Check that the backend and BFF are running.">
+        <p-button label="Retry" icon="pi pi-refresh" size="small" (onClick)="load()" />
+      </rl-empty-state>
+    </div>
+  } @else if (data(); as d) {
+    @if (d.dataNote) {
+      <div class="callout tone-info small"><i class="pi pi-info-circle" aria-hidden="true"></i><span>{{ d.dataNote }}</span></div>
+    }
+
+    @if (isEmpty()) {
+      <div class="rl-panel">
+        <rl-empty-state
+          icon="pi pi-chart-bar"
+          title="No experiments yet"
+          message="Run one of the demos below or open a lab. Metrics appear here once experiments are persisted."
+        />
+      </div>
+    } @else {
+      <div class="grid grid-kpi" data-testid="dashboard-kpis">
+        @for (k of kpis(); track k.label) {
+          <rl-kpi-card [label]="k.label" [value]="k.value" [icon]="k.icon" [tone]="k.tone" [hint]="k.hint ?? null" />
+        }
+      </div>
+
+      @if (charts(); as c) {
+        <div class="grid grid-2">
+          <section class="rl-panel">
+            <div class="rl-panel-header"><h2><i class="pi pi-chart-pie" aria-hidden="true"></i>Experiments by category</h2></div>
+            <div class="rl-panel-body">
+              @if (d.byCategory.length) {
+                <div class="chart-box"><p-chart type="doughnut" [data]="c.category.data" [options]="c.category.options" height="260px" ariaLabel="Experiments by category" /></div>
+              } @else {
+                <rl-empty-state title="No data" />
+              }
+            </div>
+          </section>
+          <section class="rl-panel">
+            <div class="rl-panel-header"><h2><i class="pi pi-clock" aria-hidden="true"></i>Average duration by strategy</h2></div>
+            <div class="rl-panel-body">
+              @if (d.durationByStrategy.length) {
+                <div class="chart-box"><p-chart type="bar" [data]="c.duration.data" [options]="c.duration.options" height="260px" ariaLabel="Average duration by strategy" /></div>
+              } @else {
+                <rl-empty-state title="No data" />
+              }
+            </div>
+          </section>
+          <section class="rl-panel">
+            <div class="rl-panel-header"><h2><i class="pi pi-times-circle" aria-hidden="true"></i>Failure rate by strategy</h2></div>
+            <div class="rl-panel-body">
+              @if (d.failureRateByStrategy.length) {
+                <div class="chart-box"><p-chart type="bar" [data]="c.failure.data" [options]="c.failure.options" height="260px" ariaLabel="Failure rate by strategy" /></div>
+              } @else {
+                <rl-empty-state title="No data" />
+              }
+            </div>
+          </section>
+          <section class="rl-panel">
+            <div class="rl-panel-header"><h2><i class="pi pi-chart-line" aria-hidden="true"></i>Inconsistencies over time</h2></div>
+            <div class="rl-panel-body">
+              @if (d.inconsistenciesOverTime.length) {
+                <div class="chart-box"><p-chart type="line" [data]="c.overTime.data" [options]="c.overTime.options" height="260px" ariaLabel="Inconsistencies over time" /></div>
+              } @else {
+                <rl-empty-state title="No data" />
+              }
+            </div>
+          </section>
+        </div>
+      }
+    }
+  }
+
+  <section class="rl-panel">
+    <div class="rl-panel-header">
+      <h2><i class="pi pi-play-circle" aria-hidden="true"></i>Demos</h2>
+      <span class="muted small">Create and start a real experiment, then watch it live in the lab.</span>
+    </div>
+    <div class="rl-panel-body">
+      @if (catalog.demos().length) {
+        <div class="grid grid-4">
+          @for (p of catalog.demos(); track p.id) {
+            <article class="demo-card" data-testid="demo-card">
+              <div class="row">
+                <span class="pill tone-read num">Demo {{ p.demo }}</span>
+                <span [class]="'pill tone-' + difficultyTone(p.difficulty)">{{ p.difficulty }}</span>
+              </div>
+              <h3>{{ p.name }}</h3>
+              <p class="muted small">{{ p.problem }}</p>
+              <span class="grow"></span>
+              <p-button
+                label="Run demo"
+                icon="pi pi-play"
+                size="small"
+                (onClick)="runDemo(p)"
+                [ariaLabel]="'Run demo ' + p.demo + ': ' + p.name"
+              />
+            </article>
+          }
+        </div>
+      } @else if (catalog.failed()) {
+        <rl-empty-state icon="pi pi-exclamation-circle" title="Catalog unavailable" />
+      } @else {
+        <div class="grid grid-4">
+          @for (i of [1, 2, 3, 4]; track i) {
+            <p-skeleton height="9rem" />
+          }
+        </div>
+      }
+    </div>
+  </section>
+
+  @if (data(); as d) {
+    @if (d.recent.length) {
+      <section class="rl-panel">
+        <div class="rl-panel-header">
+          <h2><i class="pi pi-history" aria-hidden="true"></i>Recent experiments</h2>
+          <span class="grow"></span>
+          <a routerLink="/history" class="small">View all</a>
+        </div>
+        <div class="rl-panel-body flush">
+          <p-table [value]="d.recent" size="small" [tableStyle]="{ 'min-width': '50rem' }">
+            <ng-template #header>
+              <tr>
+                <th scope="col">Id</th>
+                <th scope="col">Name</th>
+                <th scope="col">Strategy</th>
+                <th scope="col">Status</th>
+                <th scope="col">Consistency</th>
+                <th scope="col">Duration</th>
+                <th scope="col">Created</th>
+              </tr>
+            </ng-template>
+            <ng-template #body let-e>
+              <tr>
+                <td class="mono-cell"><a [routerLink]="['/experiments', e.id]">{{ e.id }}</a></td>
+                <td>{{ e.name }}</td>
+                <td>{{ catalog.strategyName(e.strategy) }}</td>
+                <td><rl-status-tag [status]="e.status" /></td>
+                <td><rl-consistency-tag [consistent]="e.consistent" /></td>
+                <td class="mono-cell">{{ formatMs(e.durationMs) }}</td>
+                <td class="mono-cell">{{ formatDateTime(e.createdAt) }}</td>
+              </tr>
+            </ng-template>
+          </p-table>
+        </div>
+      </section>
+    }
+  }
+</div>

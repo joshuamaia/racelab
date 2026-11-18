@@ -1,0 +1,158 @@
+# RaceLab — Real-Time Concurrency & Transaction Laboratory
+#
+#   docker compose up --build -d                                 # core stack
+#   docker compose --profile distributed up --build -d           # + second backend JVM
+#   docker compose --profile observability up --build -d         # + Prometheus & Grafana
+#
+# UI: http://localhost:4200   (everything else binds to 127.0.0.1 only)
+
+name: racelab
+
+x-backend-env: &backend-env
+  RACELAB_DB_URL: jdbc:postgresql://racelab-postgres:5432/${POSTGRES_DB:-racelab}?ApplicationName=racelab-backend
+  RACELAB_DB_USER: racelab_app
+  RACELAB_DB_PASSWORD: ${RACELAB_APP_PASSWORD:-racelab_app_local}
+  RACELAB_DB_MIGRATION_USER: ${POSTGRES_USER:-racelab_owner}
+  RACELAB_DB_MIGRATION_PASSWORD: ${POSTGRES_PASSWORD:-racelab_owner_local}
+  RACELAB_DB_POOL_SIZE: ${RACELAB_DB_POOL_SIZE:-60}
+  RACELAB_REDIS_HOST: racelab-redis
+  RACELAB_INTERNAL_TOKEN: ${RACELAB_INTERNAL_TOKEN:-change-me-local-internal-token}
+  RACELAB_MAX_CONCURRENT_EXPERIMENTS: ${RACELAB_MAX_CONCURRENT_EXPERIMENTS:-3}
+
+services:
+  racelab-postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    command: ["postgres", "-c", "max_connections=300", "-c", "deadlock_timeout=1s", "-c", "shared_buffers=256MB"]
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-racelab}
+      POSTGRES_USER: ${POSTGRES_USER:-racelab_owner}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-racelab_owner_local}
+      RACELAB_APP_PASSWORD: ${RACELAB_APP_PASSWORD:-racelab_app_local}
+    volumes:
+      - racelab-pgdata:/var/lib/postgresql/data
+      - ./infrastructure/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [racelab-internal]
+
+  racelab-redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "128mb"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [racelab-internal]
+
+  racelab-backend:
+    build:
+      context: ./backend
+      additional_contexts:
+        certs: ./infrastructure/certs
+    image: racelab/backend:1.0.0
+    restart: unless-stopped
+    environment:
+      <<: *backend-env
+      RACELAB_INSTANCE_ID: primary
+      RACELAB_SELF_URL: http://racelab-backend:8080
+      RACELAB_PEER_URL: http://racelab-backend-secondary:8080
+      RACELAB_PEER_INSTANCE_ID: secondary
+    depends_on:
+      racelab-postgres: { condition: service_healthy }
+      racelab-redis: { condition: service_healthy }
+    ports:
+      - "127.0.0.1:${BACKEND_PORT:-8080}:8080"
+    networks: [racelab-internal]
+
+  racelab-backend-secondary:
+    profiles: [distributed]
+    build:
+      context: ./backend
+      additional_contexts:
+        certs: ./infrastructure/certs
+    image: racelab/backend:1.0.0
+    restart: unless-stopped
+    environment:
+      <<: *backend-env
+      RACELAB_INSTANCE_ID: secondary
+      RACELAB_SELF_URL: http://racelab-backend-secondary:8080
+      RACELAB_PEER_URL: http://racelab-backend:8080
+      RACELAB_PEER_INSTANCE_ID: primary
+      RACELAB_DB_POOL_SIZE: 40
+    depends_on:
+      racelab-backend: { condition: service_healthy }
+    ports:
+      - "127.0.0.1:${BACKEND_SECONDARY_PORT:-8081}:8080"
+    networks: [racelab-internal]
+
+  racelab-bff:
+    build:
+      context: ./bff
+      additional_contexts:
+        certs: ./infrastructure/certs
+    image: racelab/bff:1.0.0
+    restart: unless-stopped
+    environment:
+      PORT: 3000
+      BACKEND_URL: http://racelab-backend:8080
+      BACKEND_SECONDARY_URL: http://racelab-backend-secondary:8080
+      BFF_TIMEOUT_MS: ${BFF_TIMEOUT_MS:-15000}
+      BFF_RATE_LIMIT_PER_MINUTE: ${BFF_RATE_LIMIT_PER_MINUTE:-600}
+    depends_on:
+      racelab-backend: { condition: service_healthy }
+    ports:
+      - "127.0.0.1:${BFF_PORT:-3000}:3000"
+    networks: [racelab-internal]
+
+  racelab-frontend:
+    build:
+      context: ./frontend
+      additional_contexts:
+        certs: ./infrastructure/certs
+    image: racelab/frontend:1.0.0
+    restart: unless-stopped
+    depends_on:
+      racelab-bff: { condition: service_healthy }
+    ports:
+      - "${FRONTEND_PORT:-4200}:80"
+    networks: [racelab-internal]
+
+  racelab-prometheus:
+    profiles: [observability]
+    image: prom/prometheus:v3.16.0
+    restart: unless-stopped
+    volumes:
+      - ./infrastructure/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "127.0.0.1:${PROMETHEUS_PORT:-9090}:9090"
+    networks: [racelab-internal]
+
+  racelab-grafana:
+    profiles: [observability]
+    image: grafana/grafana:12.4.15
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-racelab}
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+    volumes:
+      - ./infrastructure/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infrastructure/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on: [racelab-prometheus]
+    ports:
+      - "127.0.0.1:${GRAFANA_PORT:-3001}:3000"
+    networks: [racelab-internal]
+
+volumes:
+  racelab-pgdata:
+
+networks:
+  racelab-internal:
+    driver: bridge
